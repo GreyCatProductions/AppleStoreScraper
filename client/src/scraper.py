@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
     "Accept": "*/*",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
     "Accept-Language": "en-US,en;q=0.7",
     "Origin": "https://apps.apple.com",
     "Referer": "https://apps.apple.com/",
@@ -207,5 +206,6 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
 def scrape(url: str) -> dict | None:
     response = requests.get(url, headers=HEADERS, timeout=15)
     response.raise_for_status()
+    response.encoding = "utf-8"
     soup = BeautifulSoup(response.text, "html.parser")
     return parse(url, soup)
