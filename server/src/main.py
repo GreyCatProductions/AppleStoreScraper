@@ -19,6 +19,8 @@ def get_task():
 
 @app.post("/task/complete")
 def complete_task(result: TaskResult):
+    if result.similar_apps:
+        state.enqueue_new_urls(result.similar_apps)
     state.write_row(result.model_dump())
     return {"status": "ok"}
 
