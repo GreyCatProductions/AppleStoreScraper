@@ -1,7 +1,9 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from schema.shared_state import SharedState
 from shared.objects import FailedTask, TaskResult
+from hetzner import create_server, delete_server, list_servers
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
 
@@ -39,6 +41,36 @@ def stats():
         "failed": len(state.get_failed_urls())
     }
 
+
+class CreateServerRequest(BaseModel):
+    name: str
+    ssh_key: str
+
+@app.post("/servers")
+def spawn_server(body: CreateServerRequest):
+    try:
+        server = create_server(body.name, body.ssh_key)
+        return {"server": server}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.delete("/servers/{server_id}")
+def remove_server(server_id: int):
+    try:
+        delete_server(server_id)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+@app.get("/servers")
+def list_all_servers():
+    try: 
+        servers = list_servers()
+        return {"servers": servers}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+        
 
 if __name__ == "__main__":
     import uvicorn
