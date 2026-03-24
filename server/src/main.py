@@ -87,4 +87,11 @@ def list_all_servers():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    host = os.getenv("HOST")
+    port_raw = os.getenv("PORT")
+    
+    if not host or not port_raw:
+        raise Exception("HOST or PORT are missing in .env!")
+    
+    port = int(port_raw)
+    uvicorn.run("main:app", host=host, port=port, reload=True)

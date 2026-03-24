@@ -203,9 +203,14 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
     }
 
 
-def scrape(url: str) -> dict | None:
+def scrape(url: str) -> dict:
     response = requests.get(url, headers=HEADERS, timeout=15)
     response.raise_for_status()
     response.encoding = "utf-8"
     soup = BeautifulSoup(response.text, "html.parser")
-    return parse(url, soup)
+    parsed = parse(url, soup)
+    
+    for img in soup.find_all("img"):
+        img.decompose()
+
+    return {**(parsed or {}), "html": str(soup)}
