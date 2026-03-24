@@ -48,9 +48,9 @@ def create_server(name: str, ssh_keys: List[str]) -> tuple[BoundServer, str | No
     print(f"[create_server] creating Hetzner server: {name}")
     response = client.servers.create(
         image=Image(name="ubuntu-24.04"),
-        location=Location(name="nbg1"),
+        location=Location(name="fsn1"),
         name=name,
-        server_type=ServerType(name="cpx22"),
+        server_type=ServerType(name="cx23"),
         ssh_keys=registered_keys,
         start_after_create=True,
         user_data=USER_DATA,

@@ -43,18 +43,20 @@ def stats():
         "failed": len(state.get_failed_urls())
     }
 
+def _serialize_server(server):
+    return {
+        "id": server.id,
+        "name": server.name,
+        "status": server.status,
+        "ipv4": server.public_net.ipv4.ip if server.public_net and server.public_net.ipv4 else None,
+        "ipv6": server.public_net.ipv6.ip if server.public_net and server.public_net.ipv6 else None,
+    }
+
 @app.post("/servers")
 def spawn_server(body: CreateServerRequest):
     try:
         server, root_password = create_server(body.name, body.ssh_keys)
-        return {
-            "id": server.id,
-            "name": server.name,
-            "status": server.status,
-            "ipv4": server.public_net.ipv4.ip if server.public_net and server.public_net.ipv4 else None,
-            "ipv6": server.public_net.ipv6.ip if server.public_net and server.public_net.ipv6 else None,
-            "root_password": root_password,
-        }
+        return {**_serialize_server(server), "root_password": root_password}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -71,7 +73,7 @@ def remove_server(server_id: int):
 def list_all_servers():
     try: 
         servers = list_servers()
-        return {"servers": servers}
+        return {"servers": [_serialize_server(s) for s in servers] if servers else []}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
         
