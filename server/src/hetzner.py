@@ -1,3 +1,4 @@
+import threading
 from typing import List
 from hcloud import Client
 from hcloud.images import Image
@@ -26,26 +27,38 @@ client = Client(API_TOKEN)
 
 MAX_SERVERS = 5
 _server_count = 0
+_server_count_lock = threading.Lock()
 
-def create_server(name: str, ssh_keys: List[str]) -> tuple[BoundServer, str | None]:
+
+def create_server(ssh_keys: List[str]) -> tuple[BoundServer, str | None]:
     global _server_count
-    print(f"[create_server] name={name}, ssh_keys={ssh_keys}, count={_server_count}/{MAX_SERVERS}")
-    if _server_count >= MAX_SERVERS:
-        raise RuntimeError(f"Server limit of {MAX_SERVERS} reached")
+    with _server_count_lock:
+        if _server_count >= MAX_SERVERS:
+            raise RuntimeError(f"Server limit of {MAX_SERVERS} reached")
+        name = f"server-{_server_count}"
+        _server_count += 1
+    print(
+        f"Creating server: name={name}, ssh_keys={ssh_keys}, count={_server_count}/{MAX_SERVERS}"
+    )
 
     registered_keys = []
     for i, ssh_key in enumerate(ssh_keys):
-        existing = next((k for k in client.ssh_keys.get_all() if k.public_key and k.public_key.split()[1] == ssh_key.split()[1]), None)
+        existing = next(
+            (
+                k
+                for k in client.ssh_keys.get_all()
+                if k.public_key and k.public_key.split()[1] == ssh_key.split()[1]
+            ),
+            None,
+        )
         if existing:
-            print(f"[create_server] reusing SSH key: {existing.name}")
             registered_keys.append(existing)
         else:
             key_name = f"{name}-key-{i}"
-            print(f"[create_server] registering new SSH key: {key_name}")
-            registered_keys.append(client.ssh_keys.create(name=key_name, public_key=ssh_key))
-            print(f"[create_server] registered SSH key: {key_name}")
+            registered_keys.append(
+                client.ssh_keys.create(name=key_name, public_key=ssh_key)
+            )
 
-    print(f"[create_server] creating Hetzner server: {name}")
     response = client.servers.create(
         image=Image(name="ubuntu-24.04"),
         location=Location(name="fsn1"),
@@ -55,24 +68,25 @@ def create_server(name: str, ssh_keys: List[str]) -> tuple[BoundServer, str | No
         start_after_create=True,
         user_data=USER_DATA,
     )
-    print(f"[create_server] server created, waiting for action to finish")
-
     response.action.wait_until_finished()
-    _server_count += 1
-    print(f"[create_server] done, server id={response.server.id}")
+    print(f"Server creation done. server id={response.server.id}")
     return response.server, response.root_password
+
 
 def delete_server(id: int) -> None:
     global _server_count
     action = client.servers.delete(
-        server=Server(id=123),
+        server=Server(id=id),
     )
     action.wait_until_finished()
-    _server_count = max(0, _server_count - 1)
+    with _server_count_lock:
+        _server_count = max(0, _server_count - 1)
+
 
 def get_server(id: int) -> BoundServer | None:
     server = client.servers.get_by_id(id)
     return server
+
 
 def list_servers() -> List[BoundServer] | None:
     return client.servers.get_all()

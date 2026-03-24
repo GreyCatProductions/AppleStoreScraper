@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -53,10 +54,16 @@ def _serialize_server(server):
     }
 
 @app.post("/servers")
-def spawn_server(body: CreateServerRequest):
+async def spawn_server(body: CreateServerRequest):
     try:
-        server, root_password = create_server(body.name, body.ssh_keys)
-        return {**_serialize_server(server), "root_password": root_password}
+        loop = asyncio.get_event_loop()
+        
+        async def spawn_one():
+            server, root_password = await loop.run_in_executor(None, lambda: create_server(body.ssh_keys))
+            return {**_serialize_server(server), "root_password": root_password}
+
+        return await asyncio.gather(*[spawn_one() for _ in range(body.amount)])
+
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 

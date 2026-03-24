@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO_URL="https://github.com/GreyCatProductions/Hello_World_Remote_Test"
+REPO_URL="https://github.com/GreyCatProductions/AppleStoreScraper"
 
 apt-get update -y
 apt-get install -y git python3.12 python3.12-venv
