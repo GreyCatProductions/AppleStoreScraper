@@ -1,7 +1,9 @@
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, HTTPException
-from server.src.schema.sharedState import SharedState
-from server.src.schema.requestClasses import CreateServerRequest
+from schema.sharedState import SharedState
+from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
 
