@@ -11,6 +11,10 @@ import os
 
 load_dotenv()
 API_TOKEN = os.getenv("HETZNER_API_TOKEN")
+
+_config_path = os.path.join(os.path.dirname(__file__), "..", "config", "user_data.sh")
+with open(_config_path, "r") as f:
+    USER_DATA = f.read()
 if not API_TOKEN:
     raise EnvironmentError("HETZNER_API_TOKEN is not set")
 
@@ -24,7 +28,7 @@ client = Client(API_TOKEN)
 MAX_SERVERS = 5
 _server_count = 0
 
-def create_server(name: str, ssh_key: str) -> BoundServer:
+def create_server(name: str, ssh_keys: List[str]) -> BoundServer:
     global _server_count
     if _server_count >= MAX_SERVERS:
         raise RuntimeError(f"Server limit of {MAX_SERVERS} reached")
@@ -33,9 +37,9 @@ def create_server(name: str, ssh_key: str) -> BoundServer:
         location=Location(name="nbg1"),
         name=name,
         server_type=ServerType(name="cpx22"),
-        ssh_keys=[SSHKey(name="key", public_key=ssh_key)],
+        ssh_keys=[SSHKey(name="key", public_key=ssh_key) for ssh_key in ssh_keys],
         start_after_create=True,
-        user_data="", #TODO
+        user_data=USER_DATA,
     )
 
     response.action.wait_until_finished()

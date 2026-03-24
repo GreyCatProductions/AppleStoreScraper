@@ -46,7 +46,7 @@ def stats():
 @app.post("/servers")
 def spawn_server(body: CreateServerRequest):
     try:
-        server = create_server(body.name, body.ssh_key)
+        server = create_server(body.name, body.ssh_keys)
         return {"server": server}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
