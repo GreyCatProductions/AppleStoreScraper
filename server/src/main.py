@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from schema.shared_state import SharedState
+from server.src.schema.sharedState import SharedState
+from server.src.schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
 
@@ -40,11 +40,6 @@ def stats():
         "completed": len(state.get_completed_urls()),
         "failed": len(state.get_failed_urls())
     }
-
-
-class CreateServerRequest(BaseModel):
-    name: str
-    ssh_key: str
 
 @app.post("/servers")
 def spawn_server(body: CreateServerRequest):
