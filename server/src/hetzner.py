@@ -17,7 +17,13 @@ HEADERS = {
 
 client = Client("TOKEN") #TODO
 
+MAX_SERVERS = 5
+_server_count = 0
+
 def create_server(name: str, ssh_key: str) -> BoundServer:
+    global _server_count
+    if _server_count >= MAX_SERVERS:
+        raise RuntimeError(f"Server limit of {MAX_SERVERS} reached")
     response = client.servers.create(
         image=Image(name="ubuntu-24.04"),
         location=Location(name="nbg1"),
@@ -27,15 +33,18 @@ def create_server(name: str, ssh_key: str) -> BoundServer:
         start_after_create=True,
         user_data="", #TODO
     )
-    
+
     response.action.wait_until_finished()
+    _server_count += 1
     return response.server
 
 def delete_server(id: int) -> None:
+    global _server_count
     action = client.servers.delete(
         server=Server(id=123),
     )
     action.wait_until_finished()
+    _server_count = max(0, _server_count - 1)
 
 def get_server(id: int) -> BoundServer | None:
     server = client.servers.get_by_id(id)
