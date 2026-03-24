@@ -8,7 +8,7 @@ from hcloud.ssh_keys import SSHKey
 from hcloud.servers.client import BoundServer
 from hcloud.servers import Server
 
-API_TOKEN = #loads from dotenv
+API_TOKEN = 123#loads from dotenv
 
 HEADERS = {
     "Authorization": f"Bearer {API_TOKEN}",
