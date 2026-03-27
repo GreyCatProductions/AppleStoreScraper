@@ -2,7 +2,7 @@ import sys
 import os
 import pprint
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from scraper import scrapeApp, scrapeGrouping, scrapeRoom, scrapeDeveloperApps
+from scraper import scrapeApp, scrapeGrouping, scrapeCharts, scrapeRoom, scrapeDeveloperApps
 from shared.logger import setup_logging
 
 setup_logging()
@@ -12,6 +12,7 @@ TEST_URLS = [
     "https://apps.apple.com/us/iphone/room/1439382985",
     "https://apps.apple.com/us/developer/peak-games/id476160947",
     "https://apps.apple.com/us/iphone/grouping/25164",
+    "https://apps.apple.com/us/iphone/charts/7001?chart=top-free",
 ]
 
 def scrape(url: str) -> dict:
@@ -21,6 +22,8 @@ def scrape(url: str) -> dict:
         return scrapeDeveloperApps(url).model_dump()
     elif "/iphone/grouping/" in url:
         return scrapeGrouping(url).model_dump()
+    elif "/iphone/charts/" in url:
+        return scrapeCharts(url).model_dump()
     else:
         return scrapeApp(url).model_dump()
 

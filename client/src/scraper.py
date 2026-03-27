@@ -61,3 +61,9 @@ def scrapeGrouping(url: str) -> TaskResult:
     soup = _fetch_soup(url)
     found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
     return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
+
+#For urls like https://apps.apple.com/us/iphone/charts/7001
+def scrapeCharts(url: str) -> TaskResult:
+    soup = _fetch_soup(url)
+    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
+    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)

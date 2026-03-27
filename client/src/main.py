@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-from scraper import scrapeApp, scrapeGrouping, scrapeRoom, scrapeDeveloperApps
+from scraper import scrapeApp, scrapeGrouping, scrapeCharts, scrapeRoom, scrapeDeveloperApps
 from shared.logger import get_logger, setup_logging
 from dotenv import load_dotenv
 from shared.objects import FailedTask, TaskResult
@@ -75,6 +75,8 @@ def run():
             url_type = "app"
         elif "/iphone/grouping/" in url:
             url_type = "grouping"
+        elif "/iphone/charts/" in url:
+            url_type = "charts"
         else:
             url_type = "unknown"
 
@@ -89,6 +91,8 @@ def run():
                     result = scrapeDeveloperApps(url)
                 elif url_type == "grouping":
                     result = scrapeGrouping(url)
+                elif url_type == "charts":
+                    result = scrapeCharts(url)
                 else:
                     result = scrapeApp(url)
 
