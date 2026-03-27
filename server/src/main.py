@@ -15,15 +15,16 @@ INITIAL_LINKS = os.path.join(os.path.dirname(__file__), "..", "config/initialLin
 
 setup_logging()
 logger = get_logger(__name__)
-
-app = FastAPI()
 state = SharedState(csv_path=CSV_PATH, html_dir=HTML_DIR)
+
 if os.path.exists(INITIAL_LINKS):
     with open(INITIAL_LINKS) as f:
         urls = [line.strip() for line in f if line.strip()]
         state.enqueue_urls(urls)
 else:
     raise FileNotFoundError("Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!")
+
+app = FastAPI()
 
 @app.get("/task")
 def get_task():

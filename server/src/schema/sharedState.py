@@ -1,8 +1,6 @@
 import threading
 import csv
 import os
-from typing import List
-
 
 class SharedState:
     def __init__(self, csv_path: str, html_dir: str):
