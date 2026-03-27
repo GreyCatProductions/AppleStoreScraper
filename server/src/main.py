@@ -7,11 +7,13 @@ from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
+from crawler.crawler import Crawler
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
 
 app = FastAPI()
 state = SharedState(csv_path=CSV_PATH)
+crawler = Crawler(state)
 
 @app.get("/task")
 def get_task():
@@ -25,7 +27,7 @@ def get_task():
 @app.post("/task/complete")
 def complete_task(result: TaskResult):
     if result.similar_apps:
-        state.enqueue_new_urls(result.similar_apps)
+        state.enqueue_urls(result.similar_apps)
     state.write_row(result.model_dump())
     return {"status": "ok"}
 
@@ -83,7 +85,6 @@ def list_all_servers():
         return {"servers": [_serialize_server(s) for s in servers] if servers else []}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
-        
 
 if __name__ == "__main__":
     import uvicorn

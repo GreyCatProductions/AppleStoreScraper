@@ -5,7 +5,7 @@ from pydantic import ValidationError
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "shared"))
 from objects import TaskResult
-from scraper import parse
+from scraper import extractAppData
 
 HTML_FILE = glob.glob("../../*.html")[0]
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         with open(HTML_FILE, encoding="utf-8") as f:
             soup = BeautifulSoup(f.read(), "html.parser")
 
-    result = parse(url, soup)
+    result = extractAppData(url, soup)
     if not result:
         print("FAIL: parse() returned None")
         sys.exit(1)

@@ -31,7 +31,7 @@ class SharedState:
         with self._lock:
             return len(self._urls) > 0
         
-    def enqueue_new_urls(self, urls: list[str]) -> int:
+    def enqueue_urls(self, urls: list[str]) -> int:
         with self._lock:
             seen = self._urls | self._completed_urls | self._failed_urls
             new = [u for u in urls if u not in seen]

@@ -1,5 +1,6 @@
 import json
 import re
+from typing import List
 import requests
 from bs4 import BeautifulSoup
 
@@ -19,7 +20,7 @@ HEADERS = {
 }
 
 
-def _find_dt(soup: BeautifulSoup, *labels: str):
+def _findDt(soup: BeautifulSoup, *labels: str):
     return soup.find("dt", string=lambda s: s and s.strip().lower() in labels)  # type: ignore
 
 
@@ -48,8 +49,34 @@ def sizeToBytes(txt: str) -> int:
     mult = {"B": 1, "KB": 1_000, "MB": 1_000_000, "GB": 1_000_000_000}
     return int(v * mult.get(unit, 1))
 
-
-def parse(url: str, soup: BeautifulSoup) -> dict | None:
+def extractAppRefs(soup: BeautifulSoup) -> List[str]:
+    return [
+        href
+        for a in soup.find_all("a", href=True)
+        if re.match(
+            r"https://apps\.apple\.com/[a-z]{2}/app/.+/id\d+$", href := str(a["href"])
+        )
+    ]
+    
+def extractRoomRefs(soup: BeautifulSoup) -> List[str]:
+    return [
+        href
+        for a in soup.find_all("a", href=True)
+        if re.match(
+            r"https://apps\.apple\.com/[a-z]{2}/iphone/room/\d+", href := str(a["href"])
+        )
+    ]
+    
+def extractMoreByDevRefs(soup: BeautifulSoup) -> List[str]:
+    return [
+        href
+        for a in soup.find_all("a", href=True)
+        if re.match(
+            r"https://apps\.apple\.com/[a-z]{2}/developer/[^/\"'\s]+/room/id\d+", href := str(a["href"])
+        )
+    ]
+    
+def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     script = soup.find("script", id="software-application", type="application/ld+json")
     if not script or not script.string:
         return None
@@ -75,31 +102,31 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
             pass
 
     try:
-        languages = _find_dt(soup, "languages", "sprachen").find_next("details").select_one("ul li .styled-text").get_text(strip=True)  # type: ignore
+        languages = _findDt(soup, "languages", "sprachen").find_next("details").select_one("ul li .styled-text").get_text(strip=True)  # type: ignore
     except AttributeError:
         languages = None
 
     try:
-        size_text = _find_dt(soup, "size", "größe").find_next("ul").select_one("li .styled-text").get_text(strip=True)  # type: ignore
+        size_text = _findDt(soup, "size", "größe").find_next("ul").select_one("li .styled-text").get_text(strip=True)  # type: ignore
         size = sizeToBytes(size_text)
     except AttributeError:
         size = None
 
     try:
-        blocks = _find_dt(soup, "kompatibilität", "compatibility").find_next("details").select("ul li .styled-text")  # type: ignore
+        blocks = _findDt(soup, "kompatibilität", "compatibility").find_next("details").select("ul li .styled-text")  # type: ignore
         versions = "|".join(b.get_text("\n", strip=True) for b in blocks) or None
     except AttributeError:
         versions = None
 
     try:
-        items = _find_dt(soup, "in\u2011app purchases", "in-app-käufe").find_next("details").select("ul li")  # type: ignore
+        items = _findDt(soup, "in\u2011app purchases", "in-app-käufe").find_next("details").select("ul li")  # type: ignore
         in_app_purchases = "|".join(b.get_text("\n", strip=True) for b in items) or None
     except AttributeError:
         in_app_purchases = None
 
     try:
         age_restriction = (
-            _find_dt(soup, "age rating", "altersfreigabe")
+            _findDt(soup, "age rating", "altersfreigabe")
             .find_next(
                 lambda n: n.name in ("div", "span")
                 and n.get_text(strip=True)
@@ -112,7 +139,7 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
         age_restriction = None
 
     try:
-        age_restriction_reasons = _find_dt(
+        age_restriction_reasons = _findDt(
             soup, "age rating", "altersfreigabe"
         ).find_next("details")
         age_restriction_reasons = [
@@ -144,13 +171,7 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
     tracked = _privacy_items("tracked")
     not_collected = bool(soup.find("h2", string=lambda s: s and s.strip() in PRIVACY_LABELS["not_collected"]))  # type: ignore
 
-    found_urls = [
-        href
-        for a in soup.find_all("a", href=True)
-        if re.match(
-            r"https://apps\.apple\.com/[a-z]{2}/app/.+/id\d+$", href := str(a["href"])
-        )
-    ]
+    found_urls = extractAppRefs(soup=soup)
     
     lis = soup.select('dialog ul li')
     VERSION_RE = re.compile(r"\b(?:Version\s*)?(\d+\.\d+(?:\.\d+)?)\b")
@@ -202,15 +223,18 @@ def parse(url: str, soup: BeautifulSoup) -> dict | None:
         "privacy_policy_link": privacy_policy_link,
     }
 
-
 def scrape(url: str) -> dict:
     response = requests.get(url, headers=HEADERS, timeout=15)
     response.raise_for_status()
     response.encoding = "utf-8"
     soup = BeautifulSoup(response.text, "html.parser")
-    parsed = parse(url, soup)
+    appData = extractAppData(url, soup)
+    appRefs = extractAppRefs(soup)
+    roomRefs = extractRoomRefs(soup)
+    moreByDevRefs = extractMoreByDevRefs(soup)
     
     for img in soup.find_all("img"):
         img.decompose()
 
-    return {**(parsed or {}), "html": str(soup)}
+    found_urls = list(set(appRefs + roomRefs + moreByDevRefs))
+    return {**(appData or {}), "found_urls": found_urls, "html": str(soup)}

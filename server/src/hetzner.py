@@ -12,16 +12,11 @@ import os
 load_dotenv()
 API_TOKEN = os.getenv("HETZNER_API_TOKEN")
 
-_config_path = os.path.join(os.path.dirname(__file__), "..", "config", "user_data.sh")
+_config_path = os.path.join(os.path.dirname(__file__), "..", "config", "initialScript.sh")
 with open(_config_path, "r") as f:
     USER_DATA = f.read()
 if not API_TOKEN:
     raise EnvironmentError("HETZNER_API_TOKEN is not set")
-
-HEADERS = {
-    "Authorization": f"Bearer {API_TOKEN}",
-    "Content-Type": "application/json",
-}
 
 client = Client(API_TOKEN)
 
