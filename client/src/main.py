@@ -2,7 +2,7 @@ import json
 import os
 import time
 import requests
-from scraper import scrape
+from scraper import scrapeApp, scrapeRoom, scrapeDeveloperApps
 from shared.logger import get_logger, setup_logging
 from dotenv import load_dotenv
 
@@ -63,25 +63,42 @@ def run():
             continue
 
         if not url:
-            log.info("No task received, waiting...")
+            log.info(f"No tasks available, waiting {TASK_WAIT_INTERVAL}s...")
             time.sleep(TASK_WAIT_INTERVAL)
             continue
 
-        log.info(f"Scraping: {url}")
+        if "/iphone/room/" in url:
+            url_type = "room"
+        elif "/developer/" in url:
+            url_type = "developer"
+        elif "/app/" in url:
+            url_type = "app"
+        else:
+            url_type = "unknown"
+
+        log.info(f"[{url_type}] Scraping: {url}")
         result = None
+        html = None
         for attempt in range(1, SCRAPE_RETRIES + 1):
             try:
-                result = scrape(url)
+                if url_type == "room":
+                    result = scrapeRoom(url)
+                elif url_type == "developer":
+                    result = scrapeDeveloperApps(url)
+                else:
+                    result = scrapeApp(url)
                 html = result.pop("html")
                 if not html:
-                    raise Exception("html is none")
+                    raise Exception("empty html")
+                log.debug(f"Found {len(result.get('found_urls', []))} new URLs from {url}")
                 break
             except Exception as e:
-                log.warning(f"Scrape attempt {attempt}/{SCRAPE_RETRIES} failed for {url}: {e}")
+                log.warning(f"Attempt {attempt}/{SCRAPE_RETRIES} failed for {url}: {e}")
                 if attempt < SCRAPE_RETRIES:
                     time.sleep(SCRAPE_RETRY_DELAY)
+
         if result is None:
-            log.error(f"All {SCRAPE_RETRIES} scrape attempts failed for {url}, reporting to server")
+            log.error(f"All {SCRAPE_RETRIES} attempts failed for {url}, marking as failed")
             try:
                 report_failed(url)
             except Exception as e:
@@ -89,8 +106,8 @@ def run():
             continue
 
         try:
-            complete_task(result, html) # type: ignore
-            log.info(f"Done scraping: {url}")
+            complete_task(result, html)  # type: ignore
+            log.info(f"[{url_type}] Done: {url}")
         except requests.ConnectionError:
             log.error(f"Cannot reach server to submit result for {url}")
         except requests.HTTPError as e:
