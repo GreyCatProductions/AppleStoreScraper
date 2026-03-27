@@ -61,6 +61,10 @@ class SharedState:
         with self._lock:
             return len(self._urls)
 
+    def get_pending_urls(self) -> list[str]:
+        with self._lock:
+            return list(self._urls)
+
     def get_failed_urls(self) -> list[str]:
         with self._lock:
             return list(self._failed_urls)

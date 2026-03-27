@@ -44,6 +44,16 @@ def failed_task(body: FailedTask):
     return {"status": "ok"}
 
 
+@app.post("/queue")
+def enqueue(body: list[str]):
+    added = state.enqueue_urls(body)
+    return {"added": added}
+
+@app.get("/queue")
+def get_queue(offset: int = 0, limit: int = 100):
+    urls = state.get_pending_urls()
+    return {"total": len(urls), "urls": urls[offset:offset + limit]}
+
 @app.get("/progress")
 def stats():
     return {
