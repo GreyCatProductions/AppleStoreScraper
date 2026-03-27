@@ -10,9 +10,10 @@ from hetzner import create_server, delete_server, list_servers
 from crawler.crawler import Crawler
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
+HTML_DIR = os.path.join(os.path.dirname(__file__), "..", "html")
 
 app = FastAPI()
-state = SharedState(csv_path=CSV_PATH)
+state = SharedState(csv_path=CSV_PATH, html_dir=HTML_DIR)
 crawler = Crawler(state)
 
 @app.get("/task")
@@ -26,9 +27,14 @@ def get_task():
 
 @app.post("/task/complete")
 def complete_task(result: TaskResult):
-    if result.similar_apps:
-        state.enqueue_urls(result.similar_apps)
-    state.write_row(result.model_dump())
+    if result.foundUrls:
+        state.enqueue_urls(result.foundUrls)
+        
+    if result.appData:
+        state.write_row(result.appData.model_dump())
+        
+    if result.html:
+        state.save_html(result.processed_url, result.html)
     return {"status": "ok"}
 
 

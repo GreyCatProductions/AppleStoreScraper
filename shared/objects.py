@@ -2,8 +2,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-class TaskResult(BaseModel):
-    url: str| None
+class AppData(BaseModel):
     app_name: str| None
     developer_name: str| None
     category: str| None
@@ -30,5 +29,11 @@ class TaskResult(BaseModel):
     privacy_policy_link: str| None
     similar_apps: List[str]| None
 
+class TaskResult(BaseModel):
+    processed_url: str
+    appData: AppData | None
+    html: str | None
+    foundUrls: List[str] | None
+    
 class FailedTask(BaseModel):
     url: str

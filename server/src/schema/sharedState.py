@@ -4,20 +4,16 @@ import os
 
 
 class SharedState:
-    CSV_FIELDS = ["url", "title", "price", "rating", "reviews"]
-
-    def __init__(self, csv_path: str):
+    def __init__(self, csv_path: str, html_dir: str):
         self._lock = threading.Lock()
         self._urls: set[str] = set()
         self._completed_urls: set[str] = set()
         self._failed_urls: set[str] = set()
         self._csv_path = csv_path
         self._csv_lock = threading.Lock()
-        
-        if not os.path.exists(csv_path):
-            with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(self.CSV_FIELDS)
+        self._html_dir = html_dir
+        self._csv_initialized = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
+        os.makedirs(html_dir, exist_ok=True)
 
     def add_url(self, url: str) -> None:
         with self._lock:
@@ -38,16 +34,27 @@ class SharedState:
             self._urls.update(new)
             return len(new)
 
+    def save_html(self, url: str, html: str) -> None:
+        filename = url.replace("https://", "").replace("/", "_") + ".html"
+        path = os.path.join(self._html_dir, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+
     def mark_failed(self, url: str) -> None:
         with self._lock:
             self._failed_urls.add(url)
 
     def write_row(self, row: dict) -> None:
         with self._lock:
-            self._completed_urls.add(row["url"])
+            self._completed_urls.add(row.get("url", ""))
         with self._csv_lock:
+            fields = list(row.keys())
+            write_header = not self._csv_initialized
             with open(self._csv_path, "a", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=self.CSV_FIELDS)
+                writer = csv.DictWriter(f, fieldnames=fields)
+                if write_header:
+                    writer.writeheader()
+                    self._csv_initialized = True
                 writer.writerow(row)
 
     def get_url_count(self) -> int:
