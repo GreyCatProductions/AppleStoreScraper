@@ -2,7 +2,7 @@ import sys
 import os
 import pprint
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from scraper import scrapeApp, scrapeRoom, scrapeDeveloperApps
+from scraper import scrapeApp, scrapeGrouping, scrapeRoom, scrapeDeveloperApps
 from shared.logger import setup_logging
 
 setup_logging()
@@ -11,15 +11,18 @@ TEST_URLS = [
     "https://apps.apple.com/us/app/hbo-max-filme-und-serien/id1666653815",
     "https://apps.apple.com/us/iphone/room/1439382985",
     "https://apps.apple.com/us/developer/peak-games/id476160947",
+    "https://apps.apple.com/us/iphone/grouping/25164",
 ]
 
 def scrape(url: str) -> dict:
     if "/iphone/room/" in url:
-        return scrapeRoom(url)
+        return scrapeRoom(url).model_dump()
     elif "/developer/" in url:
-        return scrapeDeveloperApps(url)
+        return scrapeDeveloperApps(url).model_dump()
+    elif "/iphone/grouping/" in url:
+        return scrapeGrouping(url).model_dump()
     else:
-        return scrapeApp(url)
+        return scrapeApp(url).model_dump()
 
 if __name__ == "__main__":
     urls = sys.argv[1:] or TEST_URLS

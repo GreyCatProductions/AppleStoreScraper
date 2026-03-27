@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-from scraper import scrapeApp, scrapeRoom, scrapeDeveloperApps
+from scraper import scrapeApp, scrapeGrouping, scrapeRoom, scrapeDeveloperApps
 from shared.logger import get_logger, setup_logging
 from dotenv import load_dotenv
 from shared.objects import FailedTask, TaskResult
@@ -66,12 +66,15 @@ def run():
             time.sleep(TASK_WAIT_INTERVAL)
             continue
 
+
         if "/iphone/room/" in url:
             url_type = "room"
         elif "/developer/" in url:
             url_type = "developer"
         elif "/app/" in url:
             url_type = "app"
+        elif "/iphone/grouping/" in url:
+            url_type = "grouping"
         else:
             url_type = "unknown"
 
@@ -84,6 +87,8 @@ def run():
                     result = scrapeRoom(url)
                 elif url_type == "developer":
                     result = scrapeDeveloperApps(url)
+                elif url_type == "grouping":
+                    result = scrapeGrouping(url)
                 else:
                     result = scrapeApp(url)
 

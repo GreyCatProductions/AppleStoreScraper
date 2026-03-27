@@ -47,11 +47,17 @@ def scrapeApp(url: str) -> TaskResult:
 def scrapeRoom(url: str) -> TaskResult:
     soup = _fetch_soup(url)
     found_urls = list(set(extractAppRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=str(soup), foundUrls=found_urls)
+    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
 
 
 # For urls like https://apps.apple.com/us/developer/peak-games/id476160947
 def scrapeDeveloperApps(url: str) -> TaskResult:
     soup = _fetch_soup(url)
     found_urls = list(set(extractAppRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=str(soup), foundUrls=found_urls)
+    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
+
+#For urls like https://apps.apple.com/us/iphone/grouping/25164
+def scrapeGrouping(url: str) -> TaskResult:
+    soup = _fetch_soup(url)
+    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
+    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
