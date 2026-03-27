@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-from scraper import scrapeApp, scrapeGrouping, scrapeCharts, scrapeRoom, scrapeDeveloperApps
+from scraper import scrapeUniversal
 from shared.logger import get_logger, setup_logging
 from dotenv import load_dotenv
 from shared.objects import FailedTask, TaskResult
@@ -66,35 +66,12 @@ def run():
             time.sleep(TASK_WAIT_INTERVAL)
             continue
 
-
-        if "/iphone/room/" in url:
-            url_type = "room"
-        elif "/developer/" in url:
-            url_type = "developer"
-        elif "/app/" in url:
-            url_type = "app"
-        elif "/iphone/grouping/" in url:
-            url_type = "grouping"
-        elif "/iphone/charts/" in url:
-            url_type = "charts"
-        else:
-            url_type = "unknown"
-
-        log.info(f"Scraping: {url} of type [{url_type}]")
+        log.info(f"Scraping: {url} of type")
         result: TaskResult | None = None
 
         for attempt in range(1, SCRAPE_RETRIES + 1):
             try:
-                if url_type == "room":
-                    result = scrapeRoom(url)
-                elif url_type == "developer":
-                    result = scrapeDeveloperApps(url)
-                elif url_type == "grouping":
-                    result = scrapeGrouping(url)
-                elif url_type == "charts":
-                    result = scrapeCharts(url)
-                else:
-                    result = scrapeApp(url)
+                result = scrapeUniversal(url)
 
                 count = len(result.foundUrls) if result.foundUrls else 0
                 log.debug(f"Successfully extracted data from {url}. Found {count} URLs")
@@ -114,7 +91,7 @@ def run():
 
         try:
             complete_task(result)
-            log.info(f"[{url_type}] Done: {url}")
+            log.info(f"Done: {url}")
         except requests.ConnectionError:
             log.error(f"Cannot reach server to submit result for {url}")
         except requests.HTTPError as e:

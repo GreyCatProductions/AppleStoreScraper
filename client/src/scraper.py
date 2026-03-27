@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 from bs4 import BeautifulSoup
 
-from parser import extractAppData, extractAppRefs, extractMoreByDevRefs, extractRoomRefs
+from parser import extractAppData, extractAppRefs, extractChartRefs, extractMoreByDevRefs, extractRoomRefs
 from shared.objects import AppData, TaskResult
 
 HEADERS = {
@@ -34,36 +34,9 @@ def _fetch_soup(url: str) -> BeautifulSoup:
         img.decompose()
     return soup
 
-# For urls like https://apps.apple.com/us/app/nyt-games-wordle-crossword/id307569751
-def scrapeApp(url: str) -> TaskResult:
+def scrapeUniversal(url: str) -> TaskResult:
     soup = _fetch_soup(url)
-    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
     raw = extractAppData(url, soup) or {}
     app_data = AppData(**raw) if raw else None
+    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup) + extractChartRefs(soup)))
     return TaskResult(processed_url=url, appData=app_data, html=str(soup), foundUrls=found_urls)
-
-
-# For urls like https://apps.apple.com/us/iphone/room/1439382985
-def scrapeRoom(url: str) -> TaskResult:
-    soup = _fetch_soup(url)
-    found_urls = list(set(extractAppRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
-
-
-# For urls like https://apps.apple.com/us/developer/peak-games/id476160947
-def scrapeDeveloperApps(url: str) -> TaskResult:
-    soup = _fetch_soup(url)
-    found_urls = list(set(extractAppRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
-
-#For urls like https://apps.apple.com/us/iphone/grouping/25164
-def scrapeGrouping(url: str) -> TaskResult:
-    soup = _fetch_soup(url)
-    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)
-
-#For urls like https://apps.apple.com/us/iphone/charts/7001
-def scrapeCharts(url: str) -> TaskResult:
-    soup = _fetch_soup(url)
-    found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup)))
-    return TaskResult(processed_url=url, appData=None, html=None, foundUrls=found_urls)

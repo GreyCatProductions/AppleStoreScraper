@@ -61,6 +61,15 @@ def extractMoreByDevRefs(soup: BeautifulSoup) -> List[str]:
         )
     ]
     
+def extractChartRefs(soup: BeautifulSoup) -> List[str]:
+    return [
+        href
+        for a in soup.find_all("a", href=True)
+        if re.match(
+            r"https://apps\.apple\.com/[a-z]{2}/iphone/charts/[^/\"'\s]+", href := str(a["href"])
+        )
+    ]
+    
 def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     script = soup.find("script", id="software-application", type="application/ld+json")
     if not script or not script.string:
