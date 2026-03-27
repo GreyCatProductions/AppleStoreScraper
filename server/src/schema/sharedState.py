@@ -1,13 +1,27 @@
+from dataclasses import dataclass
+from enum import Enum
 import threading
 import csv
 import os
+from typing import Dict, List
+
+class CompletionState(Enum):
+    AVAILABLE = "available" #available and not processed
+    OCCUPIED = "occupied" #currently getting processed
+    PROCESSED = "processed" #processed successfully
+    TERMINATED = "terminated" #failed so often it is terminated
+
+MAX_RETRIES_OF_URL = 5 
+@dataclass
+class UrlTask:
+    url: str
+    retries: int = 0
+    state: CompletionState = CompletionState.AVAILABLE
 
 class SharedState:
     def __init__(self, csv_path: str, html_dir: str):
         self._lock = threading.Lock()
-        self._urls: set[str] = set()
-        self._completed_urls: set[str] = set()
-        self._failed_urls: set[str] = set()
+        self._tasks: Dict[str, UrlTask] = {}
         self._csv_path = csv_path
         self._csv_lock = threading.Lock()
         self._html_dir = html_dir
@@ -16,22 +30,29 @@ class SharedState:
 
     def add_url(self, url: str) -> None:
         with self._lock:
-            self._urls.add(url)
-            
-    def pop_url(self) -> str | None:
+            if url not in self._tasks:
+                self._tasks[url] = UrlTask(url)
+    
+    def add_urls(self, urls: List[str]) -> int:
+        success = 0
         with self._lock:
-            return self._urls.pop() if self._urls else None
+            for url in urls:
+                if url not in self._tasks:
+                    self._tasks[url] = UrlTask(url)
+                    success += 1
+        return success
+            
+    def occupy_url(self) -> str | None:
+        with self._lock:
+            for url, task in self._tasks.items():
+                if task.state == CompletionState.AVAILABLE:
+                    task.state = CompletionState.OCCUPIED
+                    return url
+            return None
 
     def has_urls(self) -> bool:
         with self._lock:
-            return len(self._urls) > 0
-        
-    def enqueue_urls(self, urls: list[str]) -> int:
-        with self._lock:
-            seen = self._urls | self._completed_urls | self._failed_urls
-            new = [u for u in urls if u not in seen]
-            self._urls.update(new)
-            return len(new)
+            return len(self._tasks) > 0
 
     def save_html(self, url: str, html: str) -> None:
         filename = url.replace("https://", "").replace("/", "_") + ".html"
@@ -41,11 +62,19 @@ class SharedState:
 
     def mark_failed(self, url: str) -> None:
         with self._lock:
-            self._failed_urls.add(url)
+            task = self._tasks[url]
+            task.state = CompletionState.AVAILABLE
+            task.retries += 1
+            
+            if task.retries >= MAX_RETRIES_OF_URL:
+                task.state = CompletionState.TERMINATED
+
+    def mark_success(self, url: str) -> None:
+        with self._lock:
+            task = self._tasks[url]
+            task.state = CompletionState.PROCESSED
 
     def write_row(self, row: dict) -> None:
-        with self._lock:
-            self._completed_urls.add(row.get("url", ""))
         with self._csv_lock:
             fields = list(row.keys())
             write_header = not self._csv_initialized
@@ -58,16 +87,9 @@ class SharedState:
 
     def get_url_count(self) -> int:
         with self._lock:
-            return len(self._urls)
+            return len(self._tasks)
 
-    def get_pending_urls(self) -> list[str]:
+    def get_urls_by_state(self, state: CompletionState) -> list[str]:
         with self._lock:
-            return list(self._urls)
+            return [t.url for t in self._tasks.values() if t.state == state]
 
-    def get_failed_urls(self) -> list[str]:
-        with self._lock:
-            return list(self._failed_urls)
-        
-    def get_completed_urls(self) -> list[str]:
-        with self._lock:
-            return list(self._completed_urls)

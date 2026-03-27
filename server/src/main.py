@@ -3,7 +3,7 @@ import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, HTTPException
-from schema.sharedState import SharedState
+from schema.sharedState import CompletionState, SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
@@ -20,7 +20,7 @@ state = SharedState(csv_path=CSV_PATH, html_dir=HTML_DIR)
 if os.path.exists(INITIAL_LINKS):
     with open(INITIAL_LINKS) as f:
         urls = [line.strip() for line in f if line.strip()]
-        state.enqueue_urls(urls)
+        state.add_urls(urls)
 else:
     raise FileNotFoundError("Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!")
 
@@ -28,7 +28,7 @@ app = FastAPI()
 
 @app.get("/task")
 def get_task():
-    url = state.pop_url()
+    url = state.occupy_url()
     if url:
         return {"url": url}
     
@@ -38,13 +38,25 @@ def get_task():
 @app.post("/task/complete")
 def complete_task(result: TaskResult):
     if result.foundUrls:
-        state.enqueue_urls(result.foundUrls)
+        state.add_urls(result.foundUrls)
         
     if result.appData:
         state.write_row(result.appData.model_dump())
         
     if result.html:
         state.save_html(result.processed_url, result.html)
+    
+    if "/app/" in result.processed_url:
+        if result.html and result.appData:
+            state.mark_success(result.processed_url)
+        else:
+            state.mark_failed(result.processed_url)
+    else:
+        if result.foundUrls:
+            state.mark_success(result.processed_url)
+        else:
+            state.mark_failed(result.processed_url)
+            
     return {"status": "ok"}
 
 
@@ -56,20 +68,21 @@ def failed_task(body: FailedTask):
 
 @app.post("/queue")
 def enqueue(body: list[str]):
-    added = state.enqueue_urls(body)
+    added = state.add_urls(body)
     return {"added": added}
 
 @app.get("/queue")
 def get_queue(offset: int = 0, limit: int = 100):
-    urls = state.get_pending_urls()
+    urls = state.get_urls_by_state(CompletionState.AVAILABLE)
     return {"total": len(urls), "urls": urls[offset:offset + limit]}
 
 @app.get("/progress")
 def stats():
     return {
-        "pending": state.get_url_count(),
-        "completed": len(state.get_completed_urls()),
-        "failed": len(state.get_failed_urls())
+        "total": state.get_url_count(),
+        "completed": len(state.get_urls_by_state(CompletionState.PROCESSED)),
+        "terminated": len(state.get_urls_by_state(CompletionState.TERMINATED)),
+        "currently_occupied": len(state.get_urls_by_state(CompletionState.OCCUPIED)),
     }
 
 def _serialize_server(server):

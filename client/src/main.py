@@ -15,9 +15,9 @@ if not host or not port_raw or not server_ip:
     raise Exception("HOST or PORT or server_ip are missing in .env!")
 
 SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
-TASK_WAIT_INTERVAL = 60  
+TASK_WAIT_INTERVAL = 60
 SCRAPE_RETRIES = 3
-SCRAPE_RETRY_DELAY = 60
+SCRAPE_RETRY_DELAY = 5 
 
 
 setup_logging()
@@ -79,7 +79,7 @@ def run():
             except Exception as e:
                 log.warning(f"Attempt {attempt}/{SCRAPE_RETRIES} failed for {url}: {e}")
                 if attempt < SCRAPE_RETRIES:
-                    time.sleep(SCRAPE_RETRY_DELAY)
+                    time.sleep(SCRAPE_RETRY_DELAY * attempt)  # exponential backoff
 
         if result is None:
             log.warning(f"All {SCRAPE_RETRIES} attempts failed for {url}. Reporting as failed")
@@ -89,6 +89,7 @@ def run():
                 log.error(f"Could not report failed URL to server: {e}")
             continue
 
+        time.sleep(SCRAPE_RETRY_DELAY)
         try:
             complete_task(result)
             log.info(f"Done: {url}")
