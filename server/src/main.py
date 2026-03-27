@@ -22,7 +22,7 @@ def get_task():
     if url:
         return {"url": url}
     
-    return {"Out of urls"}
+    return {"url": None}
 
 
 @app.post("/task/complete")
@@ -111,4 +111,4 @@ if __name__ == "__main__":
         raise Exception("HOST or PORT are missing in .env!")
     
     port = int(port_raw)
-    uvicorn.run("main:app", host=host, port=port, reload=True)
+    uvicorn.run("main:app", host=host, port=port)

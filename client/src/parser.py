@@ -177,7 +177,7 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         privacy_policy_link = \
         soup.find("a", string=lambda s: s and ("datenschutz" in s.lower() or "privacy policy" in s.lower()))["href"] # type: ignore
     except (AttributeError, TypeError):
-        privacy_policy_link = "None"
+        privacy_policy_link = None
 
     return {
         "url": url,

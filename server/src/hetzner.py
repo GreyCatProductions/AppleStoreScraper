@@ -32,9 +32,9 @@ def create_server(ssh_keys: List[str]) -> tuple[BoundServer, str | None]:
             raise RuntimeError(f"Server limit of {MAX_SERVERS} reached")
         name = f"server-{_server_count}"
         _server_count += 1
-    print(
-        f"Creating server: name={name}, ssh_keys={ssh_keys}, count={_server_count}/{MAX_SERVERS}"
-    )
+        print(
+            f"Creating server: name={name}, ssh_keys={ssh_keys}, count={_server_count}/{MAX_SERVERS}"
+        )
 
     registered_keys = []
     for i, ssh_key in enumerate(ssh_keys):

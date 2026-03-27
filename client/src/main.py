@@ -105,7 +105,7 @@ def run():
             continue
 
         try:
-            complete_task(result)  # type: ignore
+            complete_task(result)
             log.info(f"[{url_type}] Done: {url}")
         except requests.ConnectionError:
             log.error(f"Cannot reach server to submit result for {url}")
