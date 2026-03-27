@@ -1,2 +1,4 @@
-requests
-beautifulsoup4
+beautifulsoup4==4.14.3
+python-dotenv==1.2.2
+Requests==2.33.0
+shared==0.0.32
