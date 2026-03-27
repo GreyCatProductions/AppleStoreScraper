@@ -28,24 +28,28 @@ class SharedState:
         self._csv_initialized = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
         os.makedirs(html_dir, exist_ok=True)
 
-    def add_url(self, url: str) -> None:
+    def add_url(self, url: str, force: bool) -> None:
         with self._lock:
-            if url not in self._tasks:
+            task = self._tasks.get(url)
+
+            if not task or (task.state is not CompletionState.OCCUPIED and force):
                 self._tasks[url] = UrlTask(url)
     
-    def add_urls(self, urls: List[str]) -> int:
+    def add_urls(self, urls: List[str], force: bool = False) -> int:
         success = 0
         with self._lock:
             for url in urls:
-                if url not in self._tasks:
+                task = self._tasks.get(url)
+
+                if not task or (task.state is not CompletionState.OCCUPIED and force):
                     self._tasks[url] = UrlTask(url)
                     success += 1
         return success
             
-    def occupy_url(self) -> str | None:
+    def get_url(self) -> str | None:
         with self._lock:
             for url, task in self._tasks.items():
-                if task.state == CompletionState.AVAILABLE:
+                if task.state is CompletionState.AVAILABLE:
                     task.state = CompletionState.OCCUPIED
                     return url
             return None
@@ -62,7 +66,10 @@ class SharedState:
 
     def mark_failed(self, url: str) -> None:
         with self._lock:
-            task = self._tasks[url]
+            task = self._tasks.get(url)
+            if not task:
+                return 
+            
             task.state = CompletionState.AVAILABLE
             task.retries += 1
             
@@ -71,7 +78,10 @@ class SharedState:
 
     def mark_success(self, url: str) -> None:
         with self._lock:
-            task = self._tasks[url]
+            task = self._tasks.get(url)
+            if not task:
+                return 
+            
             task.state = CompletionState.PROCESSED
 
     def write_row(self, row: dict) -> None:
@@ -89,7 +99,7 @@ class SharedState:
         with self._lock:
             return len(self._tasks)
 
-    def get_urls_by_state(self, state: CompletionState) -> list[str]:
+    def get_urls(self, state: CompletionState) -> list[str]:
         with self._lock:
             return [t.url for t in self._tasks.values() if t.state == state]
 

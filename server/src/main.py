@@ -22,13 +22,13 @@ if os.path.exists(INITIAL_LINKS):
         urls = [line.strip() for line in f if line.strip()]
         state.add_urls(urls)
 else:
-    raise FileNotFoundError("Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!")
+    raise FileNotFoundError(f"Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!")
 
 app = FastAPI()
 
 @app.get("/task")
 def get_task():
-    url = state.occupy_url()
+    url = state.get_url()
     if url:
         return {"url": url}
     
@@ -68,21 +68,21 @@ def failed_task(body: FailedTask):
 
 @app.post("/queue")
 def enqueue(body: list[str]):
-    added = state.add_urls(body)
+    added = state.add_urls(body, True)
     return {"added": added}
 
 @app.get("/queue")
 def get_queue(offset: int = 0, limit: int = 100):
-    urls = state.get_urls_by_state(CompletionState.AVAILABLE)
+    urls = state.get_urls(CompletionState.AVAILABLE)
     return {"total": len(urls), "urls": urls[offset:offset + limit]}
 
 @app.get("/progress")
 def stats():
     return {
         "total": state.get_url_count(),
-        "completed": len(state.get_urls_by_state(CompletionState.PROCESSED)),
-        "terminated": len(state.get_urls_by_state(CompletionState.TERMINATED)),
-        "currently_occupied": len(state.get_urls_by_state(CompletionState.OCCUPIED)),
+        "completed": len(state.get_urls(CompletionState.PROCESSED)),
+        "terminated": len(state.get_urls(CompletionState.TERMINATED)),
+        "currently_occupied": len(state.get_urls(CompletionState.OCCUPIED)),
     }
 
 def _serialize_server(server):
