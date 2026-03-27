@@ -7,14 +7,23 @@ from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
-from crawler.crawler import Crawler
+from shared.logger import setup_logging, get_logger
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
 HTML_DIR = os.path.join(os.path.dirname(__file__), "..", "html")
+INITIAL_LINKS = os.path.join(os.path.dirname(__file__), "..", "config/initialLinks")
+
+setup_logging()
+logger = get_logger(__name__)
 
 app = FastAPI()
 state = SharedState(csv_path=CSV_PATH, html_dir=HTML_DIR)
-crawler = Crawler(state)
+if os.path.exists(INITIAL_LINKS):
+    with open(INITIAL_LINKS) as f:
+        urls = [line.strip() for line in f if line.strip()]
+        state.enqueue_urls(urls)
+else:
+    raise FileNotFoundError("Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!")
 
 @app.get("/task")
 def get_task():
