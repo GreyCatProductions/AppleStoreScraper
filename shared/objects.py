@@ -3,6 +3,7 @@ from typing import List
 from pydantic import BaseModel
 
 class AppData(BaseModel):
+    url: str | None
     app_name: str| None
     developer_name: str| None
     category: str| None
