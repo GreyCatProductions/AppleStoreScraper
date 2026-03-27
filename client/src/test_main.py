@@ -1,0 +1,34 @@
+import sys
+import os
+import pprint
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from scraper import scrapeApp, scrapeRoom, scrapeDeveloperApps
+from shared.logger import setup_logging
+
+setup_logging()
+
+TEST_URLS = [
+    "https://apps.apple.com/us/app/hbo-max-filme-und-serien/id1666653815",
+    "https://apps.apple.com/us/iphone/room/1439382985",
+    "https://apps.apple.com/us/developer/peak-games/id476160947",
+]
+
+def scrape(url: str) -> dict:
+    if "/iphone/room/" in url:
+        return scrapeRoom(url)
+    elif "/developer/" in url:
+        return scrapeDeveloperApps(url)
+    else:
+        return scrapeApp(url)
+
+if __name__ == "__main__":
+    urls = sys.argv[1:] or TEST_URLS
+    for url in urls:
+        print(f"\n--- {url} ---")
+        try:
+            result = scrape(url)
+            html = result.pop("html", None)
+            pprint.pprint(result)
+            print(f"html length: {len(html) if html else 0}")
+        except Exception as e:
+            print(f"FAIL: {e}")
