@@ -3,7 +3,7 @@ import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, HTTPException
-from schema.sharedState import CompletionState, SharedState
+from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult
 from hetzner import create_server, delete_server, list_servers
@@ -73,16 +73,16 @@ def enqueue(body: list[str]):
 
 @app.get("/queue")
 def get_queue(offset: int = 0, limit: int = 100):
-    urls = state.get_urls(CompletionState.AVAILABLE)
+    urls = state.get_available_urls()
     return {"total": len(urls), "urls": urls[offset:offset + limit]}
 
 @app.get("/progress")
 def stats():
     return {
         "total": state.get_url_count(),
-        "completed": len(state.get_urls(CompletionState.PROCESSED)),
-        "terminated": len(state.get_urls(CompletionState.TERMINATED)),
-        "currently_occupied": len(state.get_urls(CompletionState.OCCUPIED)),
+        "completed": len(state.get_processed_urls()),
+        "terminated": len(state.get_terminated_urls()),
+        "currently_occupied": len(state.get_occupied_urls()),
     }
 
 def _serialize_server(server):
