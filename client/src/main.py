@@ -16,14 +16,25 @@ if not host or not port_raw or not server_ip:
     raise Exception("HOST or PORT or server_ip are missing in .env!")
 
 SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
-TASK_WAIT_INTERVAL = 60
-SCRAPE_RETRIES = 3
-SCRAPE_RETRY_DELAY = 5 
-SCRAPE_RETRY_DELAY_VARIATION = 2 #will sleep SCRAPE_RETRY_DELAY random(+-this value)
 
+_DEFAULT_CONFIG = {
+    "task_wait_interval": 60,
+    "scrape_retries": 3,
+    "scrape_retry_delay": 5,
+    "scrape_retry_delay_variation": 2,
+}
 
 setup_logging()
 log = get_logger(__name__)
+
+def fetch_config() -> dict:
+    try:
+        response = requests.get(f"{SERVER_URL}/config", timeout=5)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        log.warning(f"Could not fetch config from server, using defaults: {e}")
+        return _DEFAULT_CONFIG
 
 def request_task() -> str | None:
     response = requests.get(f"{SERVER_URL}/task")
@@ -42,6 +53,11 @@ def report_failed(url: str) -> None:
 
 def run():
     log.info("Starting worker...")
+    cfg = fetch_config()
+    TASK_WAIT_INTERVAL = cfg.get("task_wait_interval", _DEFAULT_CONFIG["task_wait_interval"])
+    SCRAPE_RETRIES = cfg.get("scrape_retries", _DEFAULT_CONFIG["scrape_retries"])
+    SCRAPE_RETRY_DELAY = cfg.get("scrape_retry_delay", _DEFAULT_CONFIG["scrape_retry_delay"])
+    SCRAPE_RETRY_DELAY_VARIATION = cfg.get("scrape_retry_delay_variation", _DEFAULT_CONFIG["scrape_retry_delay_variation"])
 
     while True:
         try:
@@ -74,7 +90,7 @@ def run():
         for attempt in range(1, SCRAPE_RETRIES + 1):
             try:
                 result = scrapeUniversal(url)
-
+                
                 count = len(result.foundUrls) if result.foundUrls else 0
                 log.debug(f"Successfully extracted data from {url}. Found {count} URLs")
                 break

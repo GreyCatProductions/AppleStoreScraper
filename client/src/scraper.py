@@ -34,9 +34,12 @@ def _fetch_soup(url: str) -> BeautifulSoup:
         img.decompose()
     return soup
 
+def _is_valid_html(soup: BeautifulSoup) -> bool:
+    return soup.find("html") is not None and soup.find("body") is not None
+
 def scrapeUniversal(url: str) -> TaskResult:
     soup = _fetch_soup(url)
-    raw = extractAppData(url, soup) or {}
-    app_data = AppData(**raw) if raw else None
+    #raw = extractAppData(url, soup) or {}
+    #app_data = AppData(**raw) if raw else None
     found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup) + extractChartRefs(soup)))
-    return TaskResult(processed_url=url, appData=app_data, html=str(soup), foundUrls=found_urls)
+    return TaskResult(processed_url=url, success=_is_valid_html(soup), foundUrls=found_urls)

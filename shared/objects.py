@@ -32,8 +32,7 @@ class AppData(BaseModel):
 
 class TaskResult(BaseModel):
     processed_url: str
-    appData: AppData | None
-    html: str | None
+    success: bool
     foundUrls: List[str] | None
     
 class FailedTask(BaseModel):
