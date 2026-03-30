@@ -1,4 +1,5 @@
 import os
+import random
 import time
 import requests
 from scraper import scrapeUniversal
@@ -18,6 +19,7 @@ SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
 TASK_WAIT_INTERVAL = 60
 SCRAPE_RETRIES = 3
 SCRAPE_RETRY_DELAY = 5 
+SCRAPE_RETRY_DELAY_VARIATION = 2 #will sleep SCRAPE_RETRY_DELAY random(+-this value)
 
 
 setup_logging()
@@ -89,7 +91,7 @@ def run():
                 log.error(f"Could not report failed URL to server: {e}")
             continue
 
-        time.sleep(SCRAPE_RETRY_DELAY)
+        time.sleep(SCRAPE_RETRY_DELAY + random.uniform(-SCRAPE_RETRY_DELAY_VARIATION, SCRAPE_RETRY_DELAY_VARIATION))
         try:
             complete_task(result)
             log.info(f"Done: {url}")
