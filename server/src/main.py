@@ -117,6 +117,25 @@ def remove_server(server_id: int):
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
+@app.delete("/servers")
+def remove_all_servers():
+    servers = list_servers()
+    if not servers:
+        return {"deleted": []}
+
+    deleted = []
+    errors = []
+    for server in servers:
+        try:
+            if server.id is None:
+                continue
+            delete_server(server.id)
+            deleted.append(server.id)
+        except Exception as e:
+            errors.append({"id": server.id, "error": str(e)})
+
+    return {"deleted": deleted, "errors": errors}
+
 @app.get("/servers")
 def list_all_servers():
     try: 
