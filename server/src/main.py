@@ -10,6 +10,7 @@ from shared.objects import FailedTask, TaskResult
 from shared.logger import setup_logging, get_logger
 from googleCloud import create_instance_from_template, delete_instance, list_instances
 from dotenv import load_dotenv
+from google.cloud import compute_v1
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
 HTML_DIR = os.path.join(os.path.dirname(__file__), "..", "html")
@@ -55,9 +56,11 @@ def get_config():
 
 @app.post("/config")
 def update_config(body: dict):
-    _config.update(body)
-    return _config
+    for key in _config:
+        if key in body:
+            _config[key] = body[key]
 
+    return _config
 
 @app.get("/task")
 def get_task():
@@ -109,28 +112,28 @@ def stats():
     }
 
 
-def _serialize_server(server):
+def _serialize_server(server: compute_v1.Instance):
+    ipv4 = None
+    ipv6 = None
+    if server.network_interfaces:
+        iface = server.network_interfaces[0]
+        if iface.access_configs:
+            ipv4 = iface.access_configs[0].nat_ip or None
+        if iface.ipv6_access_configs:
+            ipv6 = iface.ipv6_access_configs[0].external_ipv6 or None
     return {
         "id": server.id,
         "name": server.name,
         "status": server.status,
-        "ipv4": (
-            server.public_net.ipv4.ip
-            if server.public_net and server.public_net.ipv4
-            else None
-        ),
-        "ipv6": (
-            server.public_net.ipv6.ip
-            if server.public_net and server.public_net.ipv6
-            else None
-        ),
+        "ipv4": ipv4,
+        "ipv6": ipv6,
     }
 
 
 @app.post("/servers")
 async def spawn_server(body: CreateServerRequest):
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         async def spawn_one():
             server = await loop.run_in_executor(
@@ -149,9 +152,9 @@ async def spawn_server(body: CreateServerRequest):
 
 
 @app.delete("/servers/{server_id}")
-def remove_server(instance_name: int):
+def remove_server(server_id: str):
     try:
-        delete_instance(GOOGLE_PROJECT_ID, instance_name) # type: ignore
+        delete_instance(GOOGLE_PROJECT_ID, server_id) # type: ignore
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
