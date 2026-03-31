@@ -20,6 +20,9 @@ load_dotenv()
 
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 GOOGLE_TEMPLATE_NAME = os.getenv("GOOGLE_TEMPLATE_NAME")
+_raw_ssh_keys = os.getenv("SSH_KEYS", "")
+SSH_KEYS = [k.strip() for k in _raw_ssh_keys.split(",") if k.strip()] or None
+SSH_USERNAME = os.getenv("SSH_USERNAME")
 
 if not GOOGLE_PROJECT_ID or not GOOGLE_TEMPLATE_NAME:
     raise EnvironmentError(
@@ -118,7 +121,7 @@ def _serialize_server(server: compute_v1.Instance):
     if server.network_interfaces:
         iface = server.network_interfaces[0]
         if iface.access_configs:
-            ipv4 = iface.access_configs[0].nat_ip or None
+            ipv4 = iface.access_configs[0].nat_i_p or None
         if iface.ipv6_access_configs:
             ipv6 = iface.ipv6_access_configs[0].external_ipv6 or None
     return {
@@ -140,7 +143,8 @@ async def spawn_server(body: CreateServerRequest):
                 None,
                 lambda: create_instance_from_template(
                     GOOGLE_PROJECT_ID, # type: ignore
-                    GOOGLE_TEMPLATE_NAME # type: ignore
+                    GOOGLE_TEMPLATE_NAME, # type: ignore
+                    ssh_keys=SSH_KEYS,
                 ),
             )
             return {**_serialize_server(server)}

@@ -1,11 +1,18 @@
+import os
 import sys
 import uuid
 from typing import Any
 
 from google.api_core.extended_operation import ExtendedOperation
 from google.cloud import compute_v1
+from google.oauth2 import service_account
 
 ZONE = "us-central1-a"
+_CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "googleCredentials.json")
+_SCOPES = ["https://www.googleapis.com/auth/compute"]
+
+def _credentials() -> service_account.Credentials:
+    return service_account.Credentials.from_service_account_file(_CREDENTIALS_PATH, scopes=_SCOPES)
 
 def wait_for_extended_operation(
     operation: ExtendedOperation, verbose_name: str = "operation", timeout: int = 300
@@ -55,27 +62,35 @@ def wait_for_extended_operation(
     return result
 
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
-    client = compute_v1.InstancesClient()
+    client = compute_v1.InstancesClient(credentials=_credentials())
     return list(client.list(project=project_id, zone=ZONE))
 
 
 def delete_instance(project_id: str, instance_name: str) -> None:
-    client = compute_v1.InstancesClient()
+    client = compute_v1.InstancesClient(credentials=_credentials())
     operation = client.delete(project=project_id, zone=ZONE, instance=instance_name)
     wait_for_extended_operation(operation, "instance deletion")
 
 
 def create_instance_from_template(
-    project_id: str, template_name: str, instance_name: str | None = None, region: str = "us-central1"
+    project_id: str, template_name: str, instance_name: str | None = None, region: str = "us-central1",
+    ssh_keys: list[str] | None = None
 ) -> compute_v1.Instance:
     if instance_name is None:
         instance_name = f"scraper-{uuid.uuid4().hex[:8]}"
-    client = compute_v1.InstancesClient()
+    client = compute_v1.InstancesClient(credentials=_credentials())
     request = compute_v1.InsertInstanceRequest()
     request.project = project_id
     request.zone = ZONE
     request.source_instance_template = f"projects/{project_id}/regions/{region}/instanceTemplates/{template_name}"
-    request.instance_resource = compute_v1.Instance(name=instance_name)
+
+    metadata = None
+    if ssh_keys:
+        metadata = compute_v1.Metadata(items=[
+            compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys))
+        ])
+
+    request.instance_resource = compute_v1.Instance(name=instance_name, metadata=metadata)
 
     operation = client.insert(request=request)
     wait_for_extended_operation(operation, "instance creation")
