@@ -9,6 +9,7 @@ from google.oauth2 import service_account
 
 ZONE = "us-central1-a"
 _CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "googleCredentials.json")
+_STARTUP_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "initialScript.sh")
 _SCOPES = ["https://www.googleapis.com/auth/compute"]
 
 def _credentials() -> service_account.Credentials:
@@ -84,11 +85,13 @@ def create_instance_from_template(
     request.zone = ZONE
     request.source_instance_template = f"projects/{project_id}/regions/{region}/instanceTemplates/{template_name}"
 
-    metadata = None
+    with open(_STARTUP_SCRIPT_PATH) as f:
+        startup_script = f.read()
+
+    metadata_items = [compute_v1.Items(key="startup-script", value=startup_script)]
     if ssh_keys:
-        metadata = compute_v1.Metadata(items=[
-            compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys))
-        ])
+        metadata_items.append(compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys)))
+    metadata = compute_v1.Metadata(items=metadata_items)
 
     request.instance_resource = compute_v1.Instance(name=instance_name, metadata=metadata)
 
