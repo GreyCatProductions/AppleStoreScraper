@@ -1,4 +1,6 @@
 beautifulsoup4==4.14.3
+google_api_python_client==2.193.0
+protobuf==7.34.1
+pydantic==2.12.5
 python-dotenv==1.2.2
-Requests==2.33.0
-shared==0.0.32
+Requests==2.33.1
