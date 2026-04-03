@@ -3,7 +3,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Security
+from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
@@ -50,6 +51,7 @@ else:
     )
 
 app = FastAPI()
+_api_key_scheme = APIKeyHeader(name="X-API-Key")
 
 _PUBLIC_PATHS = {"/docs"}
 
