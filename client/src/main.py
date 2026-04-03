@@ -1,40 +1,45 @@
-import os
 import random
 import time
 import requests
 from scraper import scrapeUniversal
 from shared.logger import get_logger, setup_logging
-from shared.objects import FailedTask, TaskResult
+from shared.objects import FailedTask, TaskResult, WorkerConfig
 from googledrive import GoogleDriveClient
-
-SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
-
-_DEFAULT_CONFIG = {
-    "task_wait_interval": 60,
-    "scrape_retries": 3,
-    "scrape_retry_delay": 5,
-    "scrape_retry_delay_variation": 2,
-}
-
-googleDriveClient = GoogleDriveClient(google_drive_folder_id)
 
 setup_logging()
 log = get_logger(__name__)
 
-def fetch_config() -> dict:
+_METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/{key}"
+_METADATA_HEADERS = {"Metadata-Flavor": "Google"}
+
+def _get_metadata(key: str) -> str:
+    response = requests.get(_METADATA_URL.format(key=key), headers=_METADATA_HEADERS, timeout=5)
+    response.raise_for_status()
+    return response.text
+
+server_ip = _get_metadata("SERVER_IP")
+port = _get_metadata("PORT")
+SERVER_URL = f"http://{server_ip}:{port}"
+
+def fetch_config() -> WorkerConfig:
     try:
         response = requests.get(f"{SERVER_URL}/config", timeout=5)
         response.raise_for_status()
-        return response.json()
+        return WorkerConfig(**response.json())
     except Exception as e:
         log.warning(f"Could not fetch config from server, using defaults: {e}")
-        return _DEFAULT_CONFIG
+        return WorkerConfig(
+            task_wait_interval=60,
+            scrape_retries=3,
+            scrape_retry_delay=5,
+            scrape_retry_delay_variation=2,
+            google_drive_folder_id=_get_metadata("GOOGLE_DRIVE_FOLDER_ID"),
+        )
 
 def request_task() -> str | None:
     response = requests.get(f"{SERVER_URL}/task")
     response.raise_for_status()
     return response.json().get("url")
-
 
 def complete_task(result: TaskResult) -> None:
     response = requests.post(f"{SERVER_URL}/task/complete", json=result.model_dump())
@@ -48,76 +53,72 @@ def report_failed(url: str) -> None:
 def run():
     log.info("Starting worker...")
     cfg = fetch_config()
-    TASK_WAIT_INTERVAL = cfg.get("task_wait_interval", _DEFAULT_CONFIG["task_wait_interval"])
-    SCRAPE_RETRIES = cfg.get("scrape_retries", _DEFAULT_CONFIG["scrape_retries"])
-    SCRAPE_RETRY_DELAY = cfg.get("scrape_retry_delay", _DEFAULT_CONFIG["scrape_retry_delay"])
-    SCRAPE_RETRY_DELAY_VARIATION = cfg.get("scrape_retry_delay_variation", _DEFAULT_CONFIG["scrape_retry_delay_variation"])
+    googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
 
     while True:
         try:
             url = request_task()
         except requests.ConnectionError:
             log.error("Cannot reach server, retrying...")
-            time.sleep(TASK_WAIT_INTERVAL)
+            time.sleep(cfg.task_wait_interval)
             continue
         except requests.Timeout:
             log.error("Server timed out on task request, retrying...")
-            time.sleep(TASK_WAIT_INTERVAL)
+            time.sleep(cfg.task_wait_interval)
             continue
         except requests.HTTPError as e:
             log.error(f"Server returned error on task request: {e}")
-            time.sleep(TASK_WAIT_INTERVAL)
+            time.sleep(cfg.task_wait_interval)
             continue
         except Exception as e:
             log.error(f"Server returned unexpected error on task request: {e}")
-            time.sleep(TASK_WAIT_INTERVAL)
+            time.sleep(cfg.task_wait_interval)
             continue
 
         if not url:
-            log.info(f"No tasks available, waiting {TASK_WAIT_INTERVAL}s...")
-            time.sleep(TASK_WAIT_INTERVAL)
+            log.info(f"No tasks available, waiting {cfg.task_wait_interval}s...")
+            time.sleep(cfg.task_wait_interval)
             continue
 
         log.info(f"Scraping: {url}")
         result: TaskResult | None = None
 
-        for attempt in range(1, SCRAPE_RETRIES + 1):
+        for attempt in range(1, cfg.scrape_retries + 1):
             try:
                 result, html = scrapeUniversal(url)
-                
+
                 if not result or not result.success or not html:
                     raise Exception(f"Scrape failed to fetch html for {url}")
 
                 count = len(result.foundUrls) if result.foundUrls else 0
                 log.info(f"Successfully extracted data from {url}. Found {count} URLs. Trying to save html")
-                
+
                 ATTEMPTS = 10
                 for uploadAttempt in range(1, ATTEMPTS + 1):
                     try:
                         googleDriveClient.upload_with_conversion(result.processed_url, html)
-                        break #successful upload
+                        break
                     except Exception as e:
                         sleep_time = min(2 ** uploadAttempt, 60)
-                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}")
+                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s")
                         time.sleep(sleep_time)
-                        continue
-                
-                break #successful scrape and upload
-            
+
+                break
+
             except Exception as e:
-                log.warning(f"Attempt {attempt}/{SCRAPE_RETRIES} failed for {url}: {e}")
-                if attempt < SCRAPE_RETRIES:
-                    time.sleep(SCRAPE_RETRY_DELAY * attempt)  # exponential backoff
+                log.warning(f"Attempt {attempt}/{cfg.scrape_retries} failed for {url}: {e}")
+                if attempt < cfg.scrape_retries:
+                    time.sleep(cfg.scrape_retry_delay * attempt)
 
         if result is None:
-            log.warning(f"All {SCRAPE_RETRIES} attempts failed for {url}. Reporting as failed")
+            log.warning(f"All {cfg.scrape_retries} attempts failed for {url}. Reporting as failed")
             try:
                 report_failed(url)
             except Exception as e:
                 log.error(f"Could not report failed URL to server: {e}")
             continue
 
-        time.sleep(SCRAPE_RETRY_DELAY + random.uniform(-SCRAPE_RETRY_DELAY_VARIATION, SCRAPE_RETRY_DELAY_VARIATION))
+        time.sleep(cfg.scrape_retry_delay + random.uniform(-cfg.scrape_retry_delay_variation, cfg.scrape_retry_delay_variation))
         try:
             complete_task(result)
             log.info(f"Done: {url}")
