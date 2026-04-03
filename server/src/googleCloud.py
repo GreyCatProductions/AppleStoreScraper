@@ -6,14 +6,27 @@ from typing import Any
 from google.api_core.extended_operation import ExtendedOperation
 from google.cloud import compute_v1
 from google.oauth2 import service_account
+from dotenv import load_dotenv
 
-ZONE = "us-central1-a"
-_CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "googleCredentials.json")
-_STARTUP_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "clientInit.sh")
+load_dotenv()
+ZONE = os.getenv("ZONE")
+if not ZONE:
+    raise EnvironmentError("ZONE not set!")
+
+_CREDENTIALS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "googleCredentials.json"
+)
+_STARTUP_SCRIPT_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "config", "clientInit.sh"
+)
 _SCOPES = ["https://www.googleapis.com/auth/compute"]
 
+
 def _credentials() -> service_account.Credentials:
-    return service_account.Credentials.from_service_account_file(_CREDENTIALS_PATH, scopes=_SCOPES)
+    return service_account.Credentials.from_service_account_file(
+        _CREDENTIALS_PATH, scopes=_SCOPES
+    )
+
 
 def wait_for_extended_operation(
     operation: ExtendedOperation, verbose_name: str = "operation", timeout: int = 300
@@ -62,10 +75,11 @@ def wait_for_extended_operation(
 
     return result
 
+
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
     client = compute_v1.InstancesClient(credentials=_credentials())
-    allVms = list(client.list(project=project_id, zone=ZONE))
-    workerLabeled = [i for i in client.list(project=project_id, zone=ZONE) if i.labels.get("role") == "worker"]
+    allVms = client.list(project=project_id, zone=ZONE)
+    workerLabeled = [i for i in allVms if i.labels.get("role") == "worker"]
     return workerLabeled
 
 
@@ -76,26 +90,46 @@ def delete_instance(project_id: str, instance_name: str) -> None:
 
 
 def create_instance_from_template(
-    project_id: str, template_name: str, instance_name: str | None = None, region: str = "us-central1",
-    ssh_keys: list[str] | None = None
-) -> compute_v1.Instance:
+    project_id: str,
+    template_name: str,
+    server_ip: str,
+    port: int,
+    google_drive_folder_id: str,
+    instance_name: str | None = None,
+    ssh_keys: list[str] | None = None,
+) -> compute_v1.Instance | None:
+    if not ZONE:
+        return None
+    
     if instance_name is None:
         instance_name = f"scraper-{uuid.uuid4().hex[:8]}"
     client = compute_v1.InstancesClient(credentials=_credentials())
     request = compute_v1.InsertInstanceRequest()
     request.project = project_id
     request.zone = ZONE
-    request.source_instance_template = f"projects/{project_id}/regions/{region}/instanceTemplates/{template_name}"
+    request.source_instance_template = (
+        f"projects/{project_id}/global/instanceTemplates/{template_name}"
+    )
 
     with open(_STARTUP_SCRIPT_PATH) as f:
         startup_script = f.read()
 
     metadata_items = [compute_v1.Items(key="startup-script", value=startup_script)]
     if ssh_keys:
-        metadata_items.append(compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys)))
+        metadata_items.append(
+            compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys))
+        )
+    metadata_items.append(compute_v1.Items(key="SERVER_IP", value=server_ip))
+    metadata_items.append(compute_v1.Items(key="PORT", value=str(port)))
+    metadata_items.append(
+        compute_v1.Items(key="GOOGLE_DRIVE_FOLDER_ID", value=google_drive_folder_id)
+    )
+
     metadata = compute_v1.Metadata(items=metadata_items)
 
-    request.instance_resource = compute_v1.Instance(name=instance_name, metadata=metadata,labels={"role": "worker"})
+    request.instance_resource = compute_v1.Instance(
+        name=instance_name, metadata=metadata, labels={"role": "worker"}
+    )
 
     operation = client.insert(request=request)
     wait_for_extended_operation(operation, "instance creation")

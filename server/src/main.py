@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, HTTPException
 from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
-from shared.objects import FailedTask, TaskResult
+from shared.objects import FailedTask, TaskResult, WorkerConfig
 from shared.logger import setup_logging, get_logger
 from googleCloud import create_instance_from_template, delete_instance, list_instances
 from dotenv import load_dotenv
@@ -18,16 +18,20 @@ INITIAL_LINKS = os.path.join(os.path.dirname(__file__), "..", "config/initialLin
 
 load_dotenv()
 
+HOST = os.getenv("HOST")
+port_raw = os.getenv("PORT")
+
+assert HOST and port_raw
+
+PORT = int(port_raw)
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 GOOGLE_TEMPLATE_NAME = os.getenv("GOOGLE_TEMPLATE_NAME")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+SERVER_IP = os.getenv("SERVER_IP")
 _raw_ssh_keys = os.getenv("SSH_KEYS", "")
 SSH_KEYS = [k.strip() for k in _raw_ssh_keys.split(",") if k.strip()] or None
-SSH_USERNAME = os.getenv("SSH_USERNAME")
 
-if not GOOGLE_PROJECT_ID or not GOOGLE_TEMPLATE_NAME:
-    raise EnvironmentError(
-        f"Could not find GOOGLE_PROJECT_ID or GOOGLE_TEMPLATE_NAME in .env!"
-    )
+assert GOOGLE_PROJECT_ID and GOOGLE_TEMPLATE_NAME and GOOGLE_DRIVE_FOLDER_ID and SERVER_IP
 
 setup_logging()
 logger = get_logger(__name__)
@@ -39,17 +43,18 @@ if os.path.exists(INITIAL_LINKS):
         state.add_urls(urls)
 else:
     raise FileNotFoundError(
-        f"Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Existing!"
+        f"Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Exiting!"
     )
 
 app = FastAPI()
 
-_config = {
-    "task_wait_interval": 60,
-    "scrape_retries": 3,
-    "scrape_retry_delay": 5,
-    "scrape_retry_delay_variation": 2,
-}
+_config = WorkerConfig(
+    task_wait_interval=60,
+    scrape_retries=3,
+    scrape_retry_delay=5,
+    scrape_retry_delay_variation=2,
+    google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID,
+)
 
 
 @app.get("/config")
@@ -58,10 +63,9 @@ def get_config():
 
 
 @app.post("/config")
-def update_config(body: dict):
-    for key in _config:
-        if key in body:
-            _config[key] = body[key]
+def update_config(body: WorkerConfig):
+    global _config
+    _config = _config.model_copy(update=body.model_dump(exclude_unset=True))
 
     return _config
 
@@ -142,10 +146,13 @@ async def spawn_worker(body: CreateServerRequest):
             worker = await loop.run_in_executor(
                 None,
                 lambda: create_instance_from_template(
-                    GOOGLE_PROJECT_ID, # type: ignore
-                    GOOGLE_TEMPLATE_NAME, # type: ignore
+                    project_id=GOOGLE_PROJECT_ID, # type: ignore
+                    template_name=GOOGLE_TEMPLATE_NAME, # type: ignore
+                    port=PORT,
                     ssh_keys=SSH_KEYS,
-                ),
+                    google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID, # type: ignore
+                    server_ip=SERVER_IP # type: ignore
+                )
             )
             return {**_serialize_worker(worker)}
 
@@ -155,10 +162,10 @@ async def spawn_worker(body: CreateServerRequest):
         raise HTTPException(status_code=502, detail=str(e))
 
 
-@app.delete("/workers/{worker_id}")
-def remove_worker(worker_id: str):
+@app.delete("/workers/{worker_name}")
+def remove_worker(worker_name: str):
     try:
-        delete_instance(GOOGLE_PROJECT_ID, worker_id) # type: ignore
+        delete_instance(GOOGLE_PROJECT_ID, worker_name) # type: ignore
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
@@ -195,12 +202,4 @@ def list_all_workers():
 
 if __name__ == "__main__":
     import uvicorn
-
-    host = os.getenv("HOST")
-    port_raw = os.getenv("PORT")
-
-    if not host or not port_raw:
-        raise Exception("HOST or PORT are missing in .env!")
-
-    port = int(port_raw)
-    uvicorn.run("main:app", host=host, port=port)
+    uvicorn.run("main:app", host=HOST, port=PORT)

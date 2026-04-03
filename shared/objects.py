@@ -1,5 +1,4 @@
 from typing import List
-
 from pydantic import BaseModel
 
 class AppData(BaseModel):
@@ -37,3 +36,10 @@ class TaskResult(BaseModel):
     
 class FailedTask(BaseModel):
     url: str
+
+class WorkerConfig(BaseModel):
+    task_wait_interval: int
+    scrape_retries: int
+    scrape_retry_delay: int
+    scrape_retry_delay_variation: int
+    google_drive_folder_id: str

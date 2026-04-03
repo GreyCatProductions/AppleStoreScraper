@@ -4,21 +4,8 @@ import time
 import requests
 from scraper import scrapeUniversal
 from shared.logger import get_logger, setup_logging
-from dotenv import load_dotenv
 from shared.objects import FailedTask, TaskResult
 from googledrive import GoogleDriveClient
-
-load_dotenv()
-host = os.getenv("HOST")
-port_raw = os.getenv("PORT")
-server_ip = os.getenv("SERVER_IP")
-google_drive_folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
-
-if not host or not port_raw or not server_ip:
-    raise Exception("HOST or PORT or server_ip are missing in .env!")
-
-if not google_drive_folder_id:
-    raise Exception("GOOGLE_DRIVE_FOLDER_ID missing in .env!")
 
 SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
 
