@@ -51,8 +51,12 @@ else:
 
 app = FastAPI()
 
+_PUBLIC_PATHS = {"/docs"}
+
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
+    if request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
     if request.headers.get("X-API-Key") != API_KEY:
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
     return await call_next(request)
