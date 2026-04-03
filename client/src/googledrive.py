@@ -29,7 +29,7 @@ class GoogleDriveClient:
 
             file = (
                 self.service.files()
-                .create(body=file_metadata, media_body=media, fields="id")
+                .create(body=file_metadata, media_body=media, fields="id", supportsAllDrives=True)
                 .execute()
             )
             logger.info(f'File with ID: "{file.get("id")}" and Name: "{name}" has been uploaded.')
