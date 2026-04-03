@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 
 ZONE = "us-central1-a"
 _CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "googleCredentials.json")
-_STARTUP_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "initialScript.sh")
+_STARTUP_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "clientInit.sh")
 _SCOPES = ["https://www.googleapis.com/auth/compute"]
 
 def _credentials() -> service_account.Credentials:

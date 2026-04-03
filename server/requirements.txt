@@ -1,4 +1,5 @@
 fastapi==0.135.2
+google-cloud-compute==1.46.0
 hcloud==2.17.1
 protobuf==7.34.1
 pydantic==2.12.5
