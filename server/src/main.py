@@ -50,8 +50,8 @@ else:
         f"Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Exiting!"
     )
 
-app = FastAPI()
-_api_key_scheme = APIKeyHeader(name="X-API-Key")
+_api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+app = FastAPI(dependencies=[Security(_api_key_scheme)])
 
 _PUBLIC_PATHS = {"/docs", "/openapi.json", "/redoc"}
 
