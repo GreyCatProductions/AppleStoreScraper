@@ -1,20 +1,21 @@
+import os
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload
-from google.auth.transport.requests import AuthorizedSession
-from google.auth import default as google_auth_default
-import googleapiclient.http
+from google.oauth2 import service_account
 from io import BytesIO
 import re
 from shared.logger import get_logger
 
 logger = get_logger(__name__)
 
+_CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "googleCredentials.json")
+_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
 class GoogleDriveClient:
     def __init__(self, htmlFolderID: str):
-        creds, _ = google_auth_default()
-        authorized_session = AuthorizedSession(creds)
-        self.service = build("drive", "v3", requestBuilder=googleapiclient.http.HttpRequest, http=authorized_session)
+        creds = service_account.Credentials.from_service_account_file(_CREDENTIALS_PATH, scopes=_SCOPES)
+        self.service = build("drive", "v3", credentials=creds)
         self.htmlFolderID = htmlFolderID
 
     def upload_with_conversion(self, name: str, content: str) -> int | None:

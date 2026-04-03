@@ -5,7 +5,6 @@ from typing import Any
 
 from google.api_core.extended_operation import ExtendedOperation
 from google.cloud import compute_v1
-from google.oauth2 import service_account
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,6 +14,9 @@ if not ZONE:
 
 _STARTUP_SCRIPT_PATH = os.path.join(
     os.path.dirname(__file__), "..", "config", "clientInit.sh"
+)
+_CREDENTIALS_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "googleCredentials.json"
 )
 
 def wait_for_extended_operation(
@@ -103,6 +105,9 @@ def create_instance_from_template(
     with open(_STARTUP_SCRIPT_PATH) as f:
         startup_script = f.read()
 
+    with open(_CREDENTIALS_PATH) as f:
+        credentials_json = f.read()
+
     metadata_items = [compute_v1.Items(key="startup-script", value=startup_script)]
     if ssh_keys:
         metadata_items.append(
@@ -110,9 +115,8 @@ def create_instance_from_template(
         )
     metadata_items.append(compute_v1.Items(key="SERVER_IP", value=server_ip))
     metadata_items.append(compute_v1.Items(key="PORT", value=str(port)))
-    metadata_items.append(
-        compute_v1.Items(key="GOOGLE_DRIVE_FOLDER_ID", value=google_drive_folder_id)
-    )
+    metadata_items.append(compute_v1.Items(key="GOOGLE_DRIVE_FOLDER_ID", value=google_drive_folder_id))
+    metadata_items.append(compute_v1.Items(key="GOOGLE_CREDENTIALS", value=credentials_json))
 
     metadata = compute_v1.Metadata(items=metadata_items)
 
