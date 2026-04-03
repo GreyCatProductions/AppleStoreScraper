@@ -6,14 +6,19 @@ from scraper import scrapeUniversal
 from shared.logger import get_logger, setup_logging
 from dotenv import load_dotenv
 from shared.objects import FailedTask, TaskResult
+from googledrive import GoogleDriveClient
 
 load_dotenv()
 host = os.getenv("HOST")
 port_raw = os.getenv("PORT")
 server_ip = os.getenv("SERVER_IP")
+google_drive_folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
 if not host or not port_raw or not server_ip:
     raise Exception("HOST or PORT or server_ip are missing in .env!")
+
+if not google_drive_folder_id:
+    raise Exception("GOOGLE_DRIVE_FOLDER_ID missing in .env!")
 
 SERVER_URL = f"http://{server_ip}:{int(port_raw)}"
 
@@ -23,6 +28,8 @@ _DEFAULT_CONFIG = {
     "scrape_retry_delay": 5,
     "scrape_retry_delay_variation": 2,
 }
+
+googleDriveClient = GoogleDriveClient(google_drive_folder_id)
 
 setup_logging()
 log = get_logger(__name__)
@@ -84,16 +91,32 @@ def run():
             time.sleep(TASK_WAIT_INTERVAL)
             continue
 
-        log.info(f"Scraping: {url} of type")
+        log.info(f"Scraping: {url}")
         result: TaskResult | None = None
 
         for attempt in range(1, SCRAPE_RETRIES + 1):
             try:
-                result = scrapeUniversal(url)
+                result, html = scrapeUniversal(url)
                 
+                if not result or not result.success or not html:
+                    raise Exception(f"Scrape failed to fetch html for {url}")
+
                 count = len(result.foundUrls) if result.foundUrls else 0
-                log.debug(f"Successfully extracted data from {url}. Found {count} URLs")
-                break
+                log.info(f"Successfully extracted data from {url}. Found {count} URLs. Trying to save html")
+                
+                ATTEMPTS = 10
+                for uploadAttempt in range(1, ATTEMPTS + 1):
+                    try:
+                        googleDriveClient.upload_with_conversion(result.processed_url, html)
+                        break #successful upload
+                    except Exception as e:
+                        sleep_time = min(2 ** uploadAttempt, 60)
+                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}")
+                        time.sleep(sleep_time)
+                        continue
+                
+                break #successful scrape and upload
+            
             except Exception as e:
                 log.warning(f"Attempt {attempt}/{SCRAPE_RETRIES} failed for {url}: {e}")
                 if attempt < SCRAPE_RETRIES:

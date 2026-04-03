@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Tuple
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 from bs4 import BeautifulSoup
@@ -37,9 +38,10 @@ def _fetch_soup(url: str) -> BeautifulSoup:
 def _is_valid_html(soup: BeautifulSoup) -> bool:
     return soup.find("html") is not None and soup.find("body") is not None
 
-def scrapeUniversal(url: str) -> TaskResult:
+def scrapeUniversal(url: str) -> Tuple[TaskResult, str]:
     soup = _fetch_soup(url)
     #raw = extractAppData(url, soup) or {}
     #app_data = AppData(**raw) if raw else None
     found_urls = list(set(extractAppRefs(soup) + extractRoomRefs(soup) + extractMoreByDevRefs(soup) + extractChartRefs(soup)))
-    return TaskResult(processed_url=url, success=_is_valid_html(soup), foundUrls=found_urls)
+    
+    return (TaskResult(processed_url=url, success=_is_valid_html(soup), foundUrls=found_urls), str(soup))
