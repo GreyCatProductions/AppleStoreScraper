@@ -20,9 +20,8 @@ if __name__ == "__main__":
     for url in urls:
         print(f"\n--- {url} ---")
         try:
-            result = scrapeUniversal(url).model_dump()
-            html = result.pop("html", None)
-            pprint.pprint(result)
+            result, html = scrapeUniversal(url)
+            pprint.pprint(result.model_dump())
             print(f"html length: {len(html) if html else 0}")
         except Exception as e:
             print(f"FAIL: {e}")
