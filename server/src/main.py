@@ -3,7 +3,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult, WorkerConfig
@@ -31,6 +32,8 @@ SERVER_IP = os.getenv("SERVER_IP")
 _raw_ssh_keys = os.getenv("SSH_KEYS", "")
 SSH_KEYS = [k.strip() for k in _raw_ssh_keys.split(",") if k.strip()] or None
 
+API_KEY = os.getenv("API_KEY")
+assert API_KEY, "API_KEY missing from environment!"
 assert GOOGLE_PROJECT_ID and GOOGLE_TEMPLATE_NAME and GOOGLE_DRIVE_FOLDER_ID and SERVER_IP
 
 setup_logging()
@@ -47,6 +50,12 @@ else:
     )
 
 app = FastAPI()
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    if request.headers.get("X-API-Key") != API_KEY:
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
 
 _config = WorkerConfig(
     task_wait_interval=60,
@@ -109,6 +118,17 @@ def get_queue(offset: int = 0, limit: int = 100):
     return {"total": len(urls), "urls": urls[offset : offset + limit]}
 
 
+@app.get("/state")
+def get_state(offset: int = 0, limit: int = 1000):
+    return {
+        "available": state.get_available_urls()[offset:offset+limit],
+        "occupied": state.get_occupied_urls()[offset:offset+limit],
+        "processed": state.get_processed_urls()[offset:offset+limit],
+        "terminated": state.get_terminated_urls()[offset:offset+limit],
+        "total": state.get_url_count(),
+    }
+
+
 @app.get("/progress")
 def stats():
     return {
@@ -151,7 +171,8 @@ async def spawn_worker(body: CreateServerRequest):
                     port=PORT,
                     ssh_keys=SSH_KEYS,
                     google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID, # type: ignore
-                    server_ip=SERVER_IP # type: ignore
+                    server_ip=SERVER_IP, # type: ignore
+                    api_key=API_KEY # type: ignore
                 )
             )
             return {**_serialize_worker(worker)}

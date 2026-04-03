@@ -86,6 +86,7 @@ def create_instance_from_template(
     server_ip: str,
     port: int,
     google_drive_folder_id: str,
+    api_key: str,
     instance_name: str | None = None,
     ssh_keys: list[str] | None = None,
 ) -> compute_v1.Instance | None:
@@ -117,6 +118,7 @@ def create_instance_from_template(
     metadata_items.append(compute_v1.Items(key="PORT", value=str(port)))
     metadata_items.append(compute_v1.Items(key="GOOGLE_DRIVE_FOLDER_ID", value=google_drive_folder_id))
     metadata_items.append(compute_v1.Items(key="GOOGLE_CREDENTIALS", value=credentials_json))
+    metadata_items.append(compute_v1.Items(key="API_KEY", value=api_key))
 
     metadata = compute_v1.Metadata(items=metadata_items)
 

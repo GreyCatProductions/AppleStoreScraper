@@ -19,11 +19,13 @@ def _get_metadata(key: str) -> str:
 
 server_ip = _get_metadata("SERVER_IP")
 port = _get_metadata("PORT")
+api_key = _get_metadata("API_KEY")
 SERVER_URL = f"http://{server_ip}:{port}"
+_HEADERS = {"X-API-Key": api_key}
 
 def fetch_config() -> WorkerConfig:
     try:
-        response = requests.get(f"{SERVER_URL}/config", timeout=5)
+        response = requests.get(f"{SERVER_URL}/config", headers=_HEADERS, timeout=5)
         response.raise_for_status()
         return WorkerConfig(**response.json())
     except Exception as e:
@@ -37,17 +39,17 @@ def fetch_config() -> WorkerConfig:
         )
 
 def request_task() -> str | None:
-    response = requests.get(f"{SERVER_URL}/task")
+    response = requests.get(f"{SERVER_URL}/task", headers=_HEADERS)
     response.raise_for_status()
     return response.json().get("url")
 
 def complete_task(result: TaskResult) -> None:
-    response = requests.post(f"{SERVER_URL}/task/complete", json=result.model_dump())
+    response = requests.post(f"{SERVER_URL}/task/complete", json=result.model_dump(), headers=_HEADERS)
     response.raise_for_status()
 
 def report_failed(url: str) -> None:
     obj = FailedTask(url=url)
-    response = requests.post(f"{SERVER_URL}/task/failed", json=obj.model_dump())
+    response = requests.post(f"{SERVER_URL}/task/failed", json=obj.model_dump(), headers=_HEADERS)
     response.raise_for_status()
 
 def run():
