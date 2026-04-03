@@ -4,7 +4,8 @@ set -e
 REPO_URL="https://github.com/GreyCatProductions/AppleStoreScraper"
 
 apt-get update -y
-apt-get install -y python3-pip python3-venv git
+apt-get install -y python3-pip python3-venv git ca-certificates
+update-ca-certificates
 
 git clone "$REPO_URL" ~/apple_store_client
 
@@ -21,6 +22,8 @@ After=network.target
 [Service]
 WorkingDirectory=/root/apple_store_client
 Environment=PYTHONPATH=/root/apple_store_client
+Environment=SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+Environment=REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ExecStart=/root/apple_store_client/.venv/bin/python client/src/main.py
 Restart=always
 RestartSec=5
