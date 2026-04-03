@@ -13,20 +13,9 @@ ZONE = os.getenv("ZONE")
 if not ZONE:
     raise EnvironmentError("ZONE not set!")
 
-_CREDENTIALS_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "googleCredentials.json"
-)
 _STARTUP_SCRIPT_PATH = os.path.join(
     os.path.dirname(__file__), "..", "config", "clientInit.sh"
 )
-_SCOPES = ["https://www.googleapis.com/auth/compute"]
-
-
-def _credentials() -> service_account.Credentials:
-    return service_account.Credentials.from_service_account_file(
-        _CREDENTIALS_PATH, scopes=_SCOPES
-    )
-
 
 def wait_for_extended_operation(
     operation: ExtendedOperation, verbose_name: str = "operation", timeout: int = 300
@@ -77,14 +66,14 @@ def wait_for_extended_operation(
 
 
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
-    client = compute_v1.InstancesClient(credentials=_credentials())
+    client = compute_v1.InstancesClient()
     allVms = client.list(project=project_id, zone=ZONE)
     workerLabeled = [i for i in allVms if i.labels.get("role") == "worker"]
     return workerLabeled
 
 
 def delete_instance(project_id: str, instance_name: str) -> None:
-    client = compute_v1.InstancesClient(credentials=_credentials())
+    client = compute_v1.InstancesClient()
     operation = client.delete(project=project_id, zone=ZONE, instance=instance_name)
     wait_for_extended_operation(operation, "instance deletion")
 
@@ -103,7 +92,7 @@ def create_instance_from_template(
     
     if instance_name is None:
         instance_name = f"scraper-{uuid.uuid4().hex[:8]}"
-    client = compute_v1.InstancesClient(credentials=_credentials())
+    client = compute_v1.InstancesClient()
     request = compute_v1.InsertInstanceRequest()
     request.project = project_id
     request.zone = ZONE
