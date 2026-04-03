@@ -16,6 +16,7 @@ cd ~/apple_store_client
 
 python3 -m venv .venv
 .venv/bin/pip install -r client/requirements.txt
+.venv/bin/pip install -r shared/requirements.txt
 
 cat > /etc/systemd/system/scraper.service <<EOF
 [Unit]

@@ -12,6 +12,7 @@ cd ~/apple_scraper_server
 
 python3 -m venv .venv
 .venv/bin/pip install -r server/requirements.txt
+.venv/bin/pip install -r shared/requirements.txt
 
 cat > /etc/systemd/system/scraper.service <<EOF
 [Unit]
