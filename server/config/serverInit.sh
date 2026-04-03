@@ -3,8 +3,6 @@ set -e
 
 REPO_URL="https://github.com/GreyCatProductions/AppleStoreScraper"
 
-gcloud compute firewall-rules create allow-8000 --allow tcp:8000 --direction INGRESS --source-ranges 0.0.0.0/0
-
 apt-get update -y
 apt-get install -y python3-pip python3-venv git
 
