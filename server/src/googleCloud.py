@@ -64,7 +64,9 @@ def wait_for_extended_operation(
 
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
     client = compute_v1.InstancesClient(credentials=_credentials())
-    return list(client.list(project=project_id, zone=ZONE))
+    allVms = list(client.list(project=project_id, zone=ZONE))
+    workerLabeled = [i for i in client.list(project=project_id, zone=ZONE) if i.labels.get("role") == "worker"]
+    return workerLabeled
 
 
 def delete_instance(project_id: str, instance_name: str) -> None:
@@ -93,7 +95,7 @@ def create_instance_from_template(
         metadata_items.append(compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys)))
     metadata = compute_v1.Metadata(items=metadata_items)
 
-    request.instance_resource = compute_v1.Instance(name=instance_name, metadata=metadata)
+    request.instance_resource = compute_v1.Instance(name=instance_name, metadata=metadata,labels={"role": "worker"})
 
     operation = client.insert(request=request)
     wait_for_extended_operation(operation, "instance creation")

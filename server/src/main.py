@@ -115,31 +115,31 @@ def stats():
     }
 
 
-def _serialize_server(server: compute_v1.Instance):
+def _serialize_worker(worker: compute_v1.Instance):
     ipv4 = None
     ipv6 = None
-    if server.network_interfaces:
-        iface = server.network_interfaces[0]
+    if worker.network_interfaces:
+        iface = worker.network_interfaces[0]
         if iface.access_configs:
             ipv4 = iface.access_configs[0].nat_i_p or None
         if iface.ipv6_access_configs:
             ipv6 = iface.ipv6_access_configs[0].external_ipv6 or None
     return {
-        "id": server.id,
-        "name": server.name,
-        "status": server.status,
+        "id": worker.id,
+        "name": worker.name,
+        "status": worker.status,
         "ipv4": ipv4,
         "ipv6": ipv6,
     }
 
 
-@app.post("/servers")
-async def spawn_server(body: CreateServerRequest):
+@app.post("/workers")
+async def spawn_worker(body: CreateServerRequest):
     try:
         loop = asyncio.get_running_loop()
 
         async def spawn_one():
-            server = await loop.run_in_executor(
+            worker = await loop.run_in_executor(
                 None,
                 lambda: create_instance_from_template(
                     GOOGLE_PROJECT_ID, # type: ignore
@@ -147,7 +147,7 @@ async def spawn_server(body: CreateServerRequest):
                     ssh_keys=SSH_KEYS,
                 ),
             )
-            return {**_serialize_server(server)}
+            return {**_serialize_worker(worker)}
 
         return await asyncio.gather(*[spawn_one() for _ in range(body.amount)])
 
@@ -155,40 +155,40 @@ async def spawn_server(body: CreateServerRequest):
         raise HTTPException(status_code=502, detail=str(e))
 
 
-@app.delete("/servers/{server_id}")
-def remove_server(server_id: str):
+@app.delete("/workers/{worker_id}")
+def remove_worker(worker_id: str):
     try:
-        delete_instance(GOOGLE_PROJECT_ID, server_id) # type: ignore
+        delete_instance(GOOGLE_PROJECT_ID, worker_id) # type: ignore
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
 
-@app.delete("/servers")
-def remove_all_servers():
-    servers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
-    if not servers:
+@app.delete("/workers")
+def remove_all_workers():
+    workers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
+    if not workers:
         return {"deleted": []}
 
     deleted = []
     errors = []
-    for server in servers:
+    for worker in workers:
         try:
-            if server.id is None:
+            if worker.id is None:
                 continue
-            delete_instance(GOOGLE_PROJECT_ID, server.name) # type: ignore
-            deleted.append(server.id)
+            delete_instance(GOOGLE_PROJECT_ID, worker.name) # type: ignore
+            deleted.append(worker.id)
         except Exception as e:
-            errors.append({"id": server.id, "error": str(e)})
+            errors.append({"id": worker.id, "error": str(e)})
 
     return {"deleted": deleted, "errors": errors}
 
 
-@app.get("/servers")
-def list_all_servers():
+@app.get("/workers")
+def list_all_workers():
     try:
-        servers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
-        return {"servers": [_serialize_server(s) for s in servers] if servers else []}
+        workers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
+        return {"workers": [_serialize_worker(s) for s in workers] if workers else []}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
