@@ -53,7 +53,7 @@ else:
 app = FastAPI()
 _api_key_scheme = APIKeyHeader(name="X-API-Key")
 
-_PUBLIC_PATHS = {"/docs"}
+_PUBLIC_PATHS = {"/docs", "/openapi.json", "/redoc"}
 
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
