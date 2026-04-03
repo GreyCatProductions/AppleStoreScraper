@@ -67,59 +67,54 @@ _config = WorkerConfig(
 
 
 @app.get("/config")
-def get_config():
+async def get_config():
     return _config
 
 
 @app.post("/config")
-def update_config(body: WorkerConfig):
+async def update_config(body: WorkerConfig):
     global _config
     _config = _config.model_copy(update=body.model_dump(exclude_unset=True))
-
     return _config
 
-@app.get("/task")
-def get_task():
-    url = state.get_url()
-    if url:
-        return {"url": url}
 
-    return {"url": None}
+@app.get("/task")
+async def get_task():
+    url = state.get_url()
+    return {"url": url}
 
 
 @app.post("/task/complete")
-def complete_task(result: TaskResult):
+async def complete_task(result: TaskResult):
     if result.foundUrls:
         state.add_urls(result.foundUrls)
-
     if result.success:
         state.mark_success(result.processed_url)
     else:
         state.mark_failed(result.processed_url)
-
     return {"status": "ok"}
 
 
 @app.post("/task/failed")
-def failed_task(body: FailedTask):
+async def failed_task(body: FailedTask):
     state.mark_failed(body.url)
     return {"status": "ok"}
 
 
 @app.post("/queue")
-def enqueue(body: list[str]):
+async def enqueue(body: list[str]):
     added = state.add_urls(body, True)
     return {"added": added}
 
 
 @app.get("/queue")
-def get_queue(offset: int = 0, limit: int = 100):
+async def get_queue(offset: int = 0, limit: int = 100):
     urls = state.get_available_urls()
     return {"total": len(urls), "urls": urls[offset : offset + limit]}
 
 
 @app.get("/state")
-def get_state(offset: int = 0, limit: int = 1000):
+async def get_state(offset: int = 0, limit: int = 1000):
     return {
         "available": state.get_available_urls()[offset:offset+limit],
         "occupied": state.get_occupied_urls()[offset:offset+limit],
@@ -130,7 +125,7 @@ def get_state(offset: int = 0, limit: int = 1000):
 
 
 @app.get("/progress")
-def stats():
+async def stats():
     return {
         "total": state.get_url_count(),
         "completed": len(state.get_processed_urls()),
@@ -184,17 +179,19 @@ async def spawn_worker(body: CreateServerRequest):
 
 
 @app.delete("/workers/{worker_name}")
-def remove_worker(worker_name: str):
+async def remove_worker(worker_name: str):
     try:
-        delete_instance(GOOGLE_PROJECT_ID, worker_name) # type: ignore
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, lambda: delete_instance(GOOGLE_PROJECT_ID, worker_name))  # type: ignore
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.delete("/workers")
-def remove_all_workers():
-    workers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
+async def remove_all_workers():
+    loop = asyncio.get_running_loop()
+    workers = await loop.run_in_executor(None, lambda: list_instances(GOOGLE_PROJECT_ID))  # type: ignore
     if not workers:
         return {"deleted": []}
 
@@ -204,7 +201,7 @@ def remove_all_workers():
         try:
             if worker.id is None:
                 continue
-            delete_instance(GOOGLE_PROJECT_ID, worker.name) # type: ignore
+            await loop.run_in_executor(None, lambda w=worker: delete_instance(GOOGLE_PROJECT_ID, w.name))  # type: ignore
             deleted.append(worker.id)
         except Exception as e:
             errors.append({"id": worker.id, "error": str(e)})
@@ -213,9 +210,10 @@ def remove_all_workers():
 
 
 @app.get("/workers")
-def list_all_workers():
+async def list_all_workers():
     try:
-        workers = list_instances(GOOGLE_PROJECT_ID) # type: ignore
+        loop = asyncio.get_running_loop()
+        workers = await loop.run_in_executor(None, lambda: list_instances(GOOGLE_PROJECT_ID))  # type: ignore
         return {"workers": [_serialize_worker(s) for s in workers] if workers else []}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
