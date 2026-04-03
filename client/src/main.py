@@ -100,7 +100,7 @@ def run():
                         break
                     except Exception as e:
                         sleep_time = min(2 ** uploadAttempt, 60)
-                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s")
+                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
                         time.sleep(sleep_time)
 
                 break
