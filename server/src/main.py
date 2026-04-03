@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
+import json
 from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult, WorkerConfig
@@ -117,6 +118,22 @@ async def enqueue(body: list[str]):
 async def get_queue(offset: int = 0, limit: int = 100):
     urls = state.get_available_urls()
     return {"total": len(urls), "urls": urls[offset : offset + limit]}
+
+
+@app.post("/checkpoint")
+async def save_checkpoint():
+    checkpoint = {
+        "available": state.get_available_urls(),
+        "occupied": state.get_occupied_urls(),
+        "processed": state.get_processed_urls(),
+        "terminated": state.get_terminated_urls(),
+    }
+    path = os.path.join(os.path.dirname(__file__), "..", "checkpoint.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(checkpoint, f)
+    total = sum(len(v) for v in checkpoint.values())
+    logger.info(f"Checkpoint saved to {path} ({total} URLs)")
+    return {"saved": total, "path": path}
 
 
 @app.get("/state")
