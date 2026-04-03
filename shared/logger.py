@@ -26,8 +26,8 @@ class _ConsoleColorFormatter(logging.Formatter):
 def setup_logging(
     log_file: str = "logs/app.log",
     level: int = logging.INFO,
-    max_bytes: int = 5_000_000,
-    backup_count: int = 10,
+    max_bytes: int = 2_000_000,
+    backup_count: int = 100,
 ) -> None:
     root = logging.getLogger()
     root.setLevel(level)
