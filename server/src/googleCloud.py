@@ -64,6 +64,26 @@ def wait_for_extended_operation(
     return result
 
 
+def start_instance(project_id: str, instance_name: str) -> None:
+    instances = list_instances(project_id)
+    match = next((i for i in instances if i.name == instance_name), None)
+    if not match:
+        raise ValueError(f"Instance {instance_name} not found")
+    zone = _get_instance_zone(match)
+    client = compute_v1.InstancesClient()
+    operation = client.start(project=project_id, zone=zone, instance=instance_name)
+    wait_for_extended_operation(operation, "instance start")
+
+
+def get_instance_by_ip(project_id: str, ip: str) -> compute_v1.Instance | None:
+    for instance in list_instances(project_id):
+        for iface in instance.network_interfaces or []:
+            for ac in iface.access_configs or []:
+                if ac.nat_i_p == ip:
+                    return instance
+    return None
+
+
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
     client = compute_v1.InstancesClient()
     result = []
