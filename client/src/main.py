@@ -56,8 +56,13 @@ def run():
     log.info("Starting worker...")
     cfg = fetch_config()
     googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
+    last_config_fetch = time.time()
 
     while True:
+        if time.time() - last_config_fetch >= 60:
+            cfg = fetch_config()
+            last_config_fetch = time.time()
+
         try:
             url = request_task()
         except requests.ConnectionError:
