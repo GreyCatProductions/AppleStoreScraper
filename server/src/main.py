@@ -119,7 +119,7 @@ async def get_queue(offset: int = 0, limit: int = 100):
     urls = state.get_available_urls()
     return {"total": len(urls), "urls": urls[offset : offset + limit]}
 
-
+checkpoint_path = os.path.join(os.path.dirname(__file__), "..", "checkpoint.json")
 @app.post("/checkpoint")
 async def save_checkpoint():
     checkpoint = {
@@ -128,12 +128,27 @@ async def save_checkpoint():
         "processed": state.get_processed_urls(),
         "terminated": state.get_terminated_urls(),
     }
-    path = os.path.join(os.path.dirname(__file__), "..", "checkpoint.json")
-    with open(path, "w", encoding="utf-8") as f:
+    with open(checkpoint_path, "w", encoding="utf-8") as f:
         json.dump(checkpoint, f)
     total = sum(len(v) for v in checkpoint.values())
-    logger.info(f"Checkpoint saved to {path} ({total} URLs)")
-    return {"saved": total, "path": path}
+    logger.info(f"Checkpoint saved to {checkpoint_path} ({total} URLs)")
+    return {"saved": total, "path": checkpoint_path}
+
+@app.post("/load_checkpoint")
+async def load_checkpoint():
+    if not os.path.exists(checkpoint_path):
+        raise HTTPException(status_code=404, detail=f"No checkpoint file found at {checkpoint_path}")
+    with open(checkpoint_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    counts = state.load_from_checkpoint(
+        available=data.get("available", []),
+        occupied=data.get("occupied", []),
+        processed=data.get("processed", []),
+        terminated=data.get("terminated", []),
+    )
+    total = sum(counts.values())
+    logger.info(f"Checkpoint loaded from {checkpoint_path} ({total} URLs; occupied treated as available)")
+    return {"loaded": counts, "path": checkpoint_path}
 
 
 @app.get("/state")

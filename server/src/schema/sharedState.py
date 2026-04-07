@@ -123,3 +123,23 @@ class SharedState:
     def get_terminated_urls(self) -> list[str]:
         with self._lock:
             return list(self._terminated.keys())
+
+    def load_from_checkpoint(self, available: list[str], occupied: list[str], processed: list[str], terminated: list[str]) -> dict:
+        with self._lock:
+            self._available.clear()
+            self._occupied.clear()
+            self._processed.clear()
+            self._terminated.clear()
+            for url in available:
+                self._available[url] = UrlTask(url)
+            for url in occupied:
+                self._available[url] = UrlTask(url)
+            for url in processed:
+                self._processed[url] = UrlTask(url)
+            for url in terminated:
+                self._terminated[url] = UrlTask(url)
+        return {
+            "available": len(self._available),
+            "processed": len(self._processed),
+            "terminated": len(self._terminated),
+        }
