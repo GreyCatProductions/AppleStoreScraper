@@ -8,9 +8,6 @@ from google.cloud import compute_v1
 from dotenv import load_dotenv
 
 load_dotenv()
-ZONE = os.getenv("ZONE")
-if not ZONE:
-    raise EnvironmentError("ZONE not set!")
 
 _STARTUP_SCRIPT_PATH = os.path.join(
     os.path.dirname(__file__), "..", "config", "clientInit.sh"
@@ -69,14 +66,26 @@ def wait_for_extended_operation(
 
 def list_instances(project_id: str) -> list[compute_v1.Instance]:
     client = compute_v1.InstancesClient()
-    allVms = client.list(project=project_id, zone=ZONE)
-    workerLabeled = [i for i in allVms if i.labels.get("role") == "worker"]
-    return workerLabeled
+    result = []
+    for _, scoped_list in client.aggregated_list(project=project_id):
+        for instance in scoped_list.instances:
+            if instance.labels.get("role") == "worker":
+                result.append(instance)
+    return result
+
+
+def _get_instance_zone(instance: compute_v1.Instance) -> str:
+    return instance.zone.split("/")[-1]
 
 
 def delete_instance(project_id: str, instance_name: str) -> None:
+    instances = list_instances(project_id)
+    match = next((i for i in instances if i.name == instance_name), None)
+    if not match:
+        raise ValueError(f"Instance {instance_name} not found")
+    zone = _get_instance_zone(match)
     client = compute_v1.InstancesClient()
-    operation = client.delete(project=project_id, zone=ZONE, instance=instance_name)
+    operation = client.delete(project=project_id, zone=zone, instance=instance_name)
     wait_for_extended_operation(operation, "instance deletion")
 
 
@@ -87,18 +96,17 @@ def create_instance_from_template(
     port: int,
     google_drive_folder_id: str,
     api_key: str,
+    zone: str,
     instance_name: str | None = None,
     ssh_keys: list[str] | None = None,
 ) -> compute_v1.Instance | None:
-    if not ZONE:
-        return None
     
     if instance_name is None:
         instance_name = f"scraper-{uuid.uuid4().hex[:8]}"
     client = compute_v1.InstancesClient()
     request = compute_v1.InsertInstanceRequest()
     request.project = project_id
-    request.zone = ZONE
+    request.zone = zone
     request.source_instance_template = (
         f"projects/{project_id}/global/instanceTemplates/{template_name}"
     )
@@ -128,4 +136,4 @@ def create_instance_from_template(
 
     operation = client.insert(request=request)
     wait_for_extended_operation(operation, "instance creation")
-    return client.get(project=project_id, zone=ZONE, instance=instance_name)
+    return client.get(project=project_id, zone=zone, instance=instance_name)

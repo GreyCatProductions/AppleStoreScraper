@@ -189,6 +189,7 @@ async def spawn_worker(body: CreateServerRequest):
                     port=PORT,
                     ssh_keys=SSH_KEYS,
                     google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID, # type: ignore
+                    zone=body.zone,
                     server_ip=SERVER_IP, # type: ignore
                     api_key=API_KEY # type: ignore
                 )
