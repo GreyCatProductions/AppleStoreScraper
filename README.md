@@ -39,6 +39,8 @@ SSH_KEYS=<comma-separated SSH public keys>
 
 Place GCP service account credentials at `googleCredentials.json` in the project root. Only needed on the server. All secrets needed on the workers get sent to them via metadata. For that reason its heavily recommended to use the endpoints of the server for creation, not googles methods as that may break expected entries in metadata.
 
+The google drive folders id must be a shared one. Otherwise saving will fail. In client/src there is a test_drive.py. Use that to verify the uploading to that folder works.
+
 ### Start the Server
 
 Server must be created manually. Run the serverInit.sh found in server/config on it and make sure to allow traffic on the firewall in the google project settings 
