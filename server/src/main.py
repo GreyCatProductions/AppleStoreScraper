@@ -210,6 +210,7 @@ async def get_state(offset: int = 0, limit: int = 1000):
 async def stats():
     return {
         "total": state.get_url_count(),
+        "available": len(state.get_available_urls()),
         "completed": len(state.get_processed_urls()),
         "terminated": len(state.get_terminated_urls()),
         "currently_occupied": len(state.get_occupied_urls()),
