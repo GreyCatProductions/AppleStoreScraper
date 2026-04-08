@@ -12,7 +12,6 @@ class UrlTask:
     url: str
     retries: int = 0
     assigned_at: float | None = None
-    worker_ip: str | None = None
 
 class SharedState:
     def __init__(self, csv_path: str, html_dir: str):
@@ -59,22 +58,21 @@ class SharedState:
                     success += 1
         return success
 
-    def get_url(self, worker_ip: str | None = None) -> str | None:
+    def get_url(self) -> str | None:
         with self._lock:
             if not self._available:
                 return None
             url, task = next(iter(self._available.items()))
             del self._available[url]
             task.assigned_at = time.time()
-            task.worker_ip = worker_ip
             self._occupied[url] = task
             return url
 
-    def get_timed_out(self, timeout: float) -> list[tuple[str, str | None]]:
+    def get_timed_out(self, timeout: float) -> list[str]:
         now = time.time()
         with self._lock:
             return [
-                (url, task.worker_ip)
+                url
                 for url, task in self._occupied.items()
                 if task.assigned_at is not None and (now - task.assigned_at) >= timeout
             ]
@@ -85,7 +83,6 @@ class SharedState:
             if task is None:
                 return False
             task.assigned_at = None
-            task.worker_ip = None
             self._available[url] = task
             return True
 

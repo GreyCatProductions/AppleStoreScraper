@@ -12,7 +12,7 @@ from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult, WorkerConfig
 from shared.logger import setup_logging, get_logger
-from googleCloud import create_instance_from_template, delete_instance, list_instances, get_instance_by_ip, start_instance
+from googleCloud import create_instance_from_template, delete_instance, list_instances, start_stopped_instances
 from dotenv import load_dotenv
 from google.cloud import compute_v1
 
@@ -62,38 +62,31 @@ async def _timeout_loop():
         candidates = state.get_timed_out(_config.task_timeout)
         if not candidates:
             continue
-        loop = asyncio.get_running_loop()
-        for url, worker_ip in candidates:
-            if worker_ip is None:
-                state.requeue_url(url)
-                logger.info(f"Requeued {url}. Worker IP not found")
-                continue
-            
-            instance = await loop.run_in_executor(
-                None, lambda ip=worker_ip: get_instance_by_ip(GOOGLE_PROJECT_ID, ip) # type: ignore
-            )
-            
-            if instance is not None and instance.status == "RUNNING":
-                continue
-            
+        for url in candidates:
             state.requeue_url(url)
-            logger.info(f"Requeued {url} — worker {worker_ip} is no longer alive (status: {instance.status if instance else 'not found'})")
-            if instance is not None:
-                try:
-                    await loop.run_in_executor(
-                        None, lambda n=instance.name: start_instance(GOOGLE_PROJECT_ID, n) # type: ignore
-                    )
-                    logger.info(f"Restarted worker {instance.name}")
-                except Exception as e:
-                    logger.error(f"Failed to restart worker {instance.name}: {e}")
-            else:
-                logger.warning(f"Worker {worker_ip} not found. Cant restart")
+            logger.info(f"Requeued {url}. Timed out")
+            
+async def _restart_loop():
+    while True:
+        await asyncio.sleep(300)
+        try:
+            loop = asyncio.get_running_loop()
+            started = await loop.run_in_executor(
+                None, lambda: start_stopped_instances(GOOGLE_PROJECT_ID)  # type: ignore
+            )
+            if started:
+                logger.info(f"Restarted stopped workers: {started}")
+        except Exception as e:
+            logger.error(f"Error in restart loop: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(_timeout_loop())
+    t1 = asyncio.create_task(_timeout_loop())
+    t2 = asyncio.create_task(_restart_loop())
     yield
-    task.cancel()
+    t1.cancel()
+    t2.cancel()
 
 app = FastAPI(dependencies=[Security(_api_key_scheme)], lifespan=lifespan)
 
@@ -131,7 +124,7 @@ async def update_config(body: WorkerConfig):
 
 @app.get("/task")
 async def get_task(request: Request):
-    url = state.get_url(worker_ip=request.client.host if request.client else None)
+    url = state.get_url()
     return {"url": url}
 
 
