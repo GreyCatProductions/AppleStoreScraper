@@ -7,7 +7,12 @@ apt-get update -y
 apt-get install -y python3-pip python3-venv git ca-certificates
 update-ca-certificates
 
-git clone "$REPO_URL" ~/apple_store_client
+if [ -d ~/apple_store_client ]; then
+  git -C ~/apple_store_client pull
+else
+  git clone "$REPO_URL" ~/apple_store_client
+fi
+
 curl -H "Metadata-Flavor: Google" \
   "http://metadata.google.internal/computeMetadata/v1/instance/attributes/GOOGLE_CREDENTIALS" \
   > ~/apple_store_client/googleCredentials.json
