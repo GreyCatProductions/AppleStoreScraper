@@ -177,15 +177,15 @@ async def load_checkpoint():
         raise HTTPException(status_code=404, detail=f"No checkpoint file found at {checkpoint_path}")
     with open(checkpoint_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    counts = state.load_from_checkpoint(
+    counts = state.merge_from_checkpoint(
         available=data.get("available", []),
         occupied=data.get("occupied", []),
         processed=data.get("processed", []),
         terminated=data.get("terminated", []),
     )
     total = sum(counts.values())
-    logger.info(f"Checkpoint loaded from {checkpoint_path} ({total} URLs; occupied treated as available)")
-    return {"loaded": counts, "path": checkpoint_path}
+    logger.info(f"Checkpoint merged from {checkpoint_path} (+{total} URLs)")
+    return {"added": counts, "path": checkpoint_path}
 
 
 @app.get("/state")

@@ -164,3 +164,20 @@ class SharedState:
             "processed": len(self._processed),
             "terminated": len(self._terminated),
         }
+
+    def merge_from_checkpoint(self, available: list[str], occupied: list[str], processed: list[str], terminated: list[str]) -> dict:
+        added = {"available": 0, "processed": 0, "terminated": 0}
+        with self._lock:
+            for url in available + occupied:
+                if not self._find_url(url):
+                    self._available[url] = UrlTask(url)
+                    added["available"] += 1
+            for url in processed:
+                if not self._find_url(url):
+                    self._processed[url] = UrlTask(url)
+                    added["processed"] += 1
+            for url in terminated:
+                if not self._find_url(url):
+                    self._terminated[url] = UrlTask(url)
+                    added["terminated"] += 1
+        return added
