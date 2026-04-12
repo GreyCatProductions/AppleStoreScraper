@@ -43,4 +43,4 @@ EOF
 
 systemctl daemon-reload
 systemctl enable scraper
-systemctl start scraper
+systemctl restart scraper
