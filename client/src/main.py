@@ -89,6 +89,7 @@ def run():
 
         log.info(f"Scraping: {url}")
         result: TaskResult | None = None
+        uploaded = False
 
         for attempt in range(1, cfg.scrape_retries + 1):
             try:
@@ -104,14 +105,24 @@ def run():
                 for uploadAttempt in range(1, ATTEMPTS + 1):
                     try:
                         googleDriveClient.upload_with_conversion(result.processed_url, html)
+                        uploaded = True
                         break
                     except Exception as e:
                         sleep_time = min(2 ** uploadAttempt, 60)
                         log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
                         time.sleep(sleep_time)
 
-                break
-
+                while not uploaded:
+                    log.warning(f"All upload attempts failed for {url}, waiting 10 minutes and retrying with refreshed config...")
+                    time.sleep(600)
+                    cfg = fetch_config()
+                    googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
+                    try:
+                        googleDriveClient.upload_with_conversion(result.processed_url, html)
+                        uploaded = True
+                    except Exception as e:
+                        log.warning(f"Retry upload still failed: {e}")
+                        
             except Exception as e:
                 log.warning(f"Attempt {attempt}/{cfg.scrape_retries} failed for {url}: {e}")
                 if attempt < cfg.scrape_retries:

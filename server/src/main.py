@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 import json
+from datetime import datetime
 from schema.sharedState import SharedState
 from schema.requestClasses import CreateServerRequest
 from shared.objects import FailedTask, TaskResult, WorkerConfig
@@ -18,6 +19,8 @@ from google.cloud import compute_v1
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "output.csv")
 HTML_DIR = os.path.join(os.path.dirname(__file__), "..", "html")
+CHECKPOINTS_DIR = os.path.join(os.path.dirname(__file__), "..", "checkpoints")
+os.makedirs(CHECKPOINTS_DIR, exist_ok=True)
 INITIAL_LINKS = os.path.join(os.path.dirname(__file__), "..", "config/initialLinks")
 
 load_dotenv()
@@ -54,6 +57,30 @@ else:
 
 _api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+def _write_checkpoint() -> str:
+    checkpoint = {
+        "available": state.get_available_urls(),
+        "occupied": state.get_occupied_urls(),
+        "processed": state.get_processed_urls(),
+        "terminated": state.get_terminated_urls(),
+    }
+    filename = datetime.utcnow().strftime("checkpoint_%Y%m%d_%H%M%S.json")
+    path = os.path.join(CHECKPOINTS_DIR, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(checkpoint, f)
+    return path
+
+
+async def _checkpoint_loop():
+    while True:
+        await asyncio.sleep(12*3600)
+        try:
+            path = _write_checkpoint()
+            logger.info(f"Auto-checkpoint saved to {path}")
+        except Exception as e:
+            logger.error(f"Auto-checkpoint failed: {e}")
+
+
 async def _timeout_loop():
     while True:
         await asyncio.sleep(10)
@@ -84,9 +111,11 @@ async def _restart_loop():
 async def lifespan(app: FastAPI):
     t1 = asyncio.create_task(_timeout_loop())
     t2 = asyncio.create_task(_restart_loop())
+    t3 = asyncio.create_task(_checkpoint_loop())
     yield
     t1.cancel()
     t2.cancel()
+    t3.cancel()
 
 app = FastAPI(dependencies=[Security(_api_key_scheme)], lifespan=lifespan)
 
@@ -156,36 +185,46 @@ async def get_queue(offset: int = 0, limit: int = 100):
     urls = state.get_available_urls()
     return {"total": len(urls), "urls": urls[offset : offset + limit]}
 
-checkpoint_path = os.path.join(os.path.dirname(__file__), "..", "checkpoint.json")
+@app.get("/checkpoints")
+async def list_checkpoints():
+    files = sorted(os.listdir(CHECKPOINTS_DIR), reverse=True)
+    return {"checkpoints": files}
+
+
 @app.post("/checkpoint")
 async def save_checkpoint():
-    checkpoint = {
-        "available": state.get_available_urls(),
-        "occupied": state.get_occupied_urls(),
-        "processed": state.get_processed_urls(),
-        "terminated": state.get_terminated_urls(),
-    }
-    with open(checkpoint_path, "w", encoding="utf-8") as f:
-        json.dump(checkpoint, f)
-    total = sum(len(v) for v in checkpoint.values())
-    logger.info(f"Checkpoint saved to {checkpoint_path} ({total} URLs)")
-    return {"saved": total, "path": checkpoint_path}
+    path = _write_checkpoint()
+    total = state.get_url_count()
+    logger.info(f"Manual checkpoint saved to {path} ({total} URLs)")
+    return {"saved": total, "path": path}
 
-@app.post("/load_checkpoint")
-async def load_checkpoint():
-    if not os.path.exists(checkpoint_path):
-        raise HTTPException(status_code=404, detail=f"No checkpoint file found at {checkpoint_path}")
-    with open(checkpoint_path, "r", encoding="utf-8") as f:
+@app.post("/checkpoint/load/{filename}")
+async def load_checkpoint(filename: str, overwrite: bool = False):
+    path = os.path.join(CHECKPOINTS_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"No checkpoint file found: {filename}")
+    with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    counts = state.merge_from_checkpoint(
-        available=data.get("available", []),
-        occupied=data.get("occupied", []),
-        processed=data.get("processed", []),
-        terminated=data.get("terminated", []),
-    )
-    total = sum(counts.values())
-    logger.info(f"Checkpoint merged from {checkpoint_path} (+{total} URLs)")
-    return {"added": counts, "path": checkpoint_path}
+
+    if overwrite:
+        state.load_from_checkpoint(
+            available=data.get("available", []),
+            occupied=data.get("occupied", []),
+            processed=data.get("processed", []),
+            terminated=data.get("terminated", [])
+        )
+        logger.info(f"Checkpoint loaded (overwrite) from {path}")
+        return {"path": path}
+    else:
+        counts = state.merge_from_checkpoint(
+            available=data.get("available", []),
+            occupied=data.get("occupied", []),
+            processed=data.get("processed", []),
+            terminated=data.get("terminated", []),
+        )
+        total = sum(counts.values())
+        logger.info(f"Checkpoint merged from {path} (+{total} URLs)")
+        return {"added": counts, "path": path}
 
 
 @app.get("/state")
