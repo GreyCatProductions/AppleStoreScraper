@@ -106,7 +106,7 @@ def run():
                     raise Exception(f"Scrape failed to fetch html for {url}")
 
                 count = len(result.foundUrls) if result.foundUrls else 0
-                log.info(f"Successfully extracted data from {url}. Found {count} URLs. Trying to save html")
+                log.info(f"Successfully extracted data from {url}. Found {count} URLs. Trying to save html to folder id {googleDriveClient.htmlFolderID}")
 
                 ATTEMPTS = 10
                 for uploadAttempt in range(1, ATTEMPTS + 1):
