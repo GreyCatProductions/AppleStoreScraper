@@ -47,6 +47,13 @@ def complete_task(result: TaskResult) -> None:
     response = requests.post(f"{SERVER_URL}/task/complete", json=result.model_dump(), headers=_HEADERS)
     response.raise_for_status()
 
+def send_heartbeat(url: str) -> None:
+    try:
+        obj = FailedTask(url=url)
+        requests.post(f"{SERVER_URL}/task/heartbeat", json=obj.model_dump(), headers=_HEADERS, timeout=5)
+    except Exception as e:
+        log.warning(f"Heartbeat failed for {url}: {e}")
+
 def report_failed(url: str) -> None:
     obj = FailedTask(url=url)
     response = requests.post(f"{SERVER_URL}/task/failed", json=obj.model_dump(), headers=_HEADERS)
@@ -114,7 +121,15 @@ def run():
 
                 while not uploaded:
                     log.warning(f"All upload attempts failed for {url}, waiting 10 minutes and retrying with refreshed config...")
-                    time.sleep(600)
+                    TIME_TO_REFRESH = 600
+                    interval = max(cfg.task_timeout // 2, 10)
+                    elapsed = 0
+                    while elapsed < TIME_TO_REFRESH:
+                        chunk = min(interval, TIME_TO_REFRESH - elapsed)
+                        time.sleep(chunk)
+                        elapsed += chunk
+                        send_heartbeat(url)
+                        
                     cfg = fetch_config()
                     googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
                     try:

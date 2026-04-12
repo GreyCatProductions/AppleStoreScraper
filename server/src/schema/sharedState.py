@@ -77,6 +77,14 @@ class SharedState:
                 if task.assigned_at is not None and (now - task.assigned_at) >= timeout
             ]
 
+    def reset_assigned_at(self, url: str) -> bool:
+        with self._lock:
+            task = self._occupied.get(url)
+            if task is None:
+                return False
+            task.assigned_at = time.time()
+            return True
+
     def requeue_url(self, url: str) -> bool:
         with self._lock:
             task = self._occupied.pop(url, None)

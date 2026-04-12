@@ -157,6 +157,12 @@ async def get_task(request: Request):
     return {"url": url}
 
 
+@app.post("/task/heartbeat")
+async def task_heartbeat(body: FailedTask):
+    state.reset_assigned_at(body.url)
+    return {"status": "ok"}
+
+
 @app.post("/task/complete")
 async def complete_task(result: TaskResult):
     if result.foundUrls:
