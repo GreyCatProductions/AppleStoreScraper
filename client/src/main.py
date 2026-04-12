@@ -27,6 +27,7 @@ def fetch_config() -> WorkerConfig:
     try:
         response = requests.get(f"{SERVER_URL}/config", headers=_HEADERS, timeout=5)
         response.raise_for_status()
+        log.info("Successfully fetched config")
         return WorkerConfig(**response.json())
     except Exception as e:
         log.warning(f"Could not fetch config from server, using defaults: {e}")
