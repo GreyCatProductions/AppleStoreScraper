@@ -24,7 +24,7 @@ def complete_task(result: TaskResult) -> None:
 def send_heartbeat(url: str) -> None:
     try:
         obj = FailedTask(url=url)
-        requests.post(f"{SERVER_URL}/task/heartbeat", json=obj.model_dump(), headers=_HEADERS, timeout=5)
+        requests.post(f"{config.SERVER_URL}/task/heartbeat", json=obj.model_dump(), headers=config.HEADERS, timeout=5)
     except Exception as e:
         log.warning(f"Heartbeat failed for {url}: {e}")
 
@@ -89,15 +89,15 @@ def run():
                         break
                     except Exception as e:
                         sleep_time = min(2 ** uploadAttempt, 60)
-                        cfg = fetch_config()
-                        googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
+                        config.refresh()
+                        googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)
                         log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
                         time.sleep(sleep_time)
 
                 while not uploaded:
                     log.warning(f"All upload attempts failed for {url}, waiting 10 minutes and retrying with refreshed config...")
                     TIME_TO_REFRESH = 600
-                    interval = max(cfg.task_timeout // 2, 10)
+                    interval = max(config.values.task_timeout // 2, 10)
                     elapsed = 0
                     while elapsed < TIME_TO_REFRESH:
                         chunk = min(interval, TIME_TO_REFRESH - elapsed)
@@ -105,8 +105,8 @@ def run():
                         elapsed += chunk
                         send_heartbeat(url)
                         
-                    cfg = fetch_config()
-                    googleDriveClient = GoogleDriveClient(cfg.google_drive_folder_id)
+                    config.refresh()
+                    googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)
                     try:
                         googleDriveClient.upload_with_conversion(result.processed_url, html)
                         uploaded = True
