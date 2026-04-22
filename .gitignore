@@ -16,7 +16,8 @@
 *.venv
 *.vscode/
 *html*
-*checkpoint*
+*checkpoint*.json
+*zip*
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
