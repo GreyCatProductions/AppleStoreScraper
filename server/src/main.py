@@ -10,10 +10,10 @@ from fastapi.responses import JSONResponse
 import json
 from datetime import datetime
 from schema.sharedState import SharedState
-from schema.requestClasses import CreateServerRequest
+from schema.requestClasses import CreateServerRequest, Metadata
 from shared.objects import FailedTask, TaskResult, WorkerConfig
 from shared.logger import setup_logging, get_logger
-from googleCloud import create_instance_from_template, delete_instance, list_instances, start_stopped_instances
+from googleCloud import create_instance_from_template, delete_instance, list_instances, start_stopped_instances, set_project_metadata, get_project_metadata
 from dotenv import load_dotenv
 from google.cloud import compute_v1
 
@@ -272,6 +272,30 @@ def _serialize_worker(worker: compute_v1.Instance):
         "ipv6": ipv6,
     }
 
+@app.get("/metadata")
+async def get_metadata():
+    loop = asyncio.get_event_loop()
+    keys = ["SERVER_IP", "PORT", "GOOGLE_DRIVE_FOLDER_ID", "API_KEY"]
+    results = {}
+    for key in keys:
+        results[key] = await loop.run_in_executor(None, get_project_metadata, GOOGLE_PROJECT_ID, key) # type: ignore
+    return results
+
+
+@app.post("/metadata")
+async def set_metadata(body: Metadata):
+    loop = asyncio.get_event_loop()
+    mapping = {
+        "SERVER_IP": body.server_ip,
+        "PORT": body.port,
+        "GOOGLE_DRIVE_FOLDER_ID": body.google_drive_folder_id,
+        "API_KEY": body.api_key,
+        "GOOGLE_CREDENTIALS": body.google_credentials,
+    }
+    await loop.run_in_executor(None, set_project_metadata, GOOGLE_PROJECT_ID, mapping) # type: ignore
+    return {"updated": list(mapping.keys())}
+
+
 
 @app.post("/workers")
 async def spawn_worker(body: CreateServerRequest):
@@ -284,12 +308,8 @@ async def spawn_worker(body: CreateServerRequest):
                 lambda: create_instance_from_template(
                     project_id=GOOGLE_PROJECT_ID, # type: ignore
                     template_name=GOOGLE_TEMPLATE_NAME, # type: ignore
-                    port=PORT,
                     ssh_keys=SSH_KEYS,
-                    google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID, # type: ignore
                     zone=body.zone,
-                    server_ip=SERVER_IP, # type: ignore
-                    api_key=API_KEY # type: ignore
                 )
             )
             return {**_serialize_worker(worker)}

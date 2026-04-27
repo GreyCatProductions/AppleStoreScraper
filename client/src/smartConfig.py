@@ -5,7 +5,7 @@ from shared.logger import setup_logging, get_logger
 setup_logging()
 log = get_logger(__name__)
 
-_METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/{key}"
+_METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/project/attributes/{key}"
 _METADATA_HEADERS = {"Metadata-Flavor": "Google"}
 
 class smartConfig:

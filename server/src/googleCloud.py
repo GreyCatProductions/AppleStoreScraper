@@ -5,6 +5,7 @@ from typing import Any
 
 from google.api_core.extended_operation import ExtendedOperation
 from google.cloud import compute_v1
+from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -101,13 +102,37 @@ def delete_instance(project_id: str, instance_name: str) -> None:
     wait_for_extended_operation(operation, "instance deletion")
 
 
+def get_project_metadata(project_id: str, key: str) -> str | None:
+    service = build("compute", "v1")
+    result = service.projects().get(project=project_id).execute()
+    items = result.get("commonInstanceMetadata", {}).get("items", [])
+    for item in items:
+        if item["key"] == key:
+            return item["value"]
+    return None
+
+
+def set_project_metadata(project_id: str, updates: dict[str, str]) -> None:
+    service = build("compute", "v1")
+    project = service.projects().get(project=project_id).execute()
+    metadata = project.get("commonInstanceMetadata", {})
+    items = metadata.get("items", [])
+    existing = {item["key"]: item for item in items}
+    for key, value in updates.items():
+        if key in existing:
+            existing[key]["value"] = value
+        else:
+            items.append({"key": key, "value": value})
+    metadata["items"] = items
+    operation = service.projects().setCommonInstanceMetadata(
+        project=project_id, body=metadata
+    ).execute()
+    service.globalOperations().wait(project=project_id, operation=operation["name"]).execute()
+
+
 def create_instance_from_template(
     project_id: str,
     template_name: str,
-    server_ip: str,
-    port: int,
-    google_drive_folder_id: str,
-    api_key: str,
     zone: str,
     instance_name: str | None = None,
     ssh_keys: list[str] | None = None,
@@ -126,19 +151,11 @@ def create_instance_from_template(
     with open(_STARTUP_SCRIPT_PATH) as f:
         startup_script = f.read()
 
-    with open(_CREDENTIALS_PATH) as f:
-        credentials_json = f.read()
-
     metadata_items = [compute_v1.Items(key="startup-script", value=startup_script)]
     if ssh_keys:
         metadata_items.append(
             compute_v1.Items(key="ssh-keys", value="\n".join(ssh_keys))
         )
-    metadata_items.append(compute_v1.Items(key="SERVER_IP", value=server_ip))
-    metadata_items.append(compute_v1.Items(key="PORT", value=str(port)))
-    metadata_items.append(compute_v1.Items(key="GOOGLE_DRIVE_FOLDER_ID", value=google_drive_folder_id))
-    metadata_items.append(compute_v1.Items(key="GOOGLE_CREDENTIALS", value=credentials_json))
-    metadata_items.append(compute_v1.Items(key="API_KEY", value=api_key))
 
     metadata = compute_v1.Metadata(items=metadata_items)
 
