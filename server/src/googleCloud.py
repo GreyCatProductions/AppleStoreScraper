@@ -5,7 +5,6 @@ from typing import Any
 
 from google.api_core.extended_operation import ExtendedOperation
 from google.cloud import compute_v1
-from googleapiclient.discovery import build
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -103,31 +102,30 @@ def delete_instance(project_id: str, instance_name: str) -> None:
 
 
 def get_project_metadata(project_id: str, key: str) -> str | None:
-    service = build("compute", "v1")
-    result = service.projects().get(project=project_id).execute()
-    items = result.get("commonInstanceMetadata", {}).get("items", [])
-    for item in items:
-        if item["key"] == key:
-            return item["value"]
+    client = compute_v1.ProjectsClient()
+    project = client.get(project=project_id)
+    for item in project.common_instance_metadata.items:
+        if item.key == key:
+            return item.value
     return None
 
 
 def set_project_metadata(project_id: str, updates: dict[str, str]) -> None:
-    service = build("compute", "v1")
-    project = service.projects().get(project=project_id).execute()
-    metadata = project.get("commonInstanceMetadata", {})
-    items = metadata.get("items", [])
-    existing = {item["key"]: item for item in items}
+    client = compute_v1.ProjectsClient()
+    project = client.get(project=project_id)
+    items = list(project.common_instance_metadata.items)
+    existing = {item.key: item for item in items}
     for key, value in updates.items():
         if key in existing:
-            existing[key]["value"] = value
+            existing[key].value = value
         else:
-            items.append({"key": key, "value": value})
-    metadata["items"] = items
-    operation = service.projects().setCommonInstanceMetadata(
-        project=project_id, body=metadata
-    ).execute()
-    service.globalOperations().wait(project=project_id, operation=operation["name"]).execute()
+            items.append(compute_v1.Items(key=key, value=value))
+    metadata = compute_v1.Metadata(
+        items=items,
+        fingerprint=project.common_instance_metadata.fingerprint,
+    )
+    operation = client.set_common_instance_metadata(project=project_id, metadata_resource=metadata)
+    wait_for_extended_operation(operation, "set project metadata")
 
 
 def create_instance_from_template(
