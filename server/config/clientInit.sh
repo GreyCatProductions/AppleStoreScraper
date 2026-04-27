@@ -14,7 +14,7 @@ else
 fi
 
 curl -H "Metadata-Flavor: Google" \
-  "http://metadata.google.internal/computeMetadata/v1/instance/attributes/GOOGLE_CREDENTIALS" \
+  "http://metadata.google.internal/computeMetadata/v1/project/attributes/GOOGLE_CREDENTIALS" \
   > ~/apple_store_client/googleCredentials.json
 
 cd ~/apple_store_client

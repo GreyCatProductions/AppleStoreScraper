@@ -290,7 +290,7 @@ async def set_metadata(body: Metadata):
         "PORT": body.port,
         "GOOGLE_DRIVE_FOLDER_ID": body.google_drive_folder_id,
         "API_KEY": body.api_key,
-        "GOOGLE_CREDENTIALS": body.google_credentials,
+        "GOOGLE_CREDENTIALS": json.dumps(body.google_credentials),
     }
     await loop.run_in_executor(None, set_project_metadata, GOOGLE_PROJECT_ID, mapping) # type: ignore
     return {"updated": list(mapping.keys())}

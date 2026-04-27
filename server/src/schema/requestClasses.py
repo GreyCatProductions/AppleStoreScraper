@@ -10,4 +10,4 @@ class Metadata(BaseModel):
     port: str
     google_drive_folder_id: str
     api_key: str
-    google_credentials: str
+    google_credentials: dict
