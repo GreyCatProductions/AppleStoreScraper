@@ -18,6 +18,7 @@
 *html*
 *checkpoint*.json
 *zip*
+*/data
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

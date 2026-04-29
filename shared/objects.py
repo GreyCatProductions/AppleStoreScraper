@@ -38,9 +38,9 @@ class FailedTask(BaseModel):
     url: str
 
 class WorkerConfig(BaseModel):
-    task_wait_interval: int | None
-    scrape_retries: int | None
-    scrape_retry_delay: int | None
-    scrape_retry_delay_variation: int | None
-    google_drive_folder_id: str | None
-    task_timeout: int | None = 300 
+    task_wait_interval: int = 60
+    scrape_retries: int = 3
+    scrape_retry_delay: int = 5
+    scrape_retry_delay_variation: int = 2
+    google_drive_folder_id: str
+    task_timeout: int = 300
