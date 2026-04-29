@@ -11,15 +11,18 @@ def search(root: str, pattern: str):
         sys.exit(1)
 
     if os.path.isfile(root):
-        count = 1 if regex.search(os.path.basename(root)) else 0
-    else:
-        count = 0
-        for _, _, files in os.walk(root):
-            for name in files:
-                if regex.search(name):
-                    count += 1
+        print(f"Path is not a directory{root}", file=sys.stderr)
+        sys.exit(1)
+    
+    total_count = 0
+    count = 0
+    for _, _, files in os.walk(root):
+        for name in files:
+            total_count += 1
+            if regex.search(name):
+                count += 1
 
-    print(count)
+    print(f"{count} / {total_count} matches")
 
 
 if __name__ == "__main__":
