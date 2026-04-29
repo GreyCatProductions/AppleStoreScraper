@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -12,7 +13,7 @@ from utils import extract_country_code, reconstruct_url
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "../data/parsed.csv")
 
 COLUMNS = [
-    "url", "country_code",
+    "url", 
     "app_name", "developer_name", "category", "price", "description",
     "review_count", "review_average",
     "review_one", "review_two", "review_three", "review_four", "review_five",
@@ -31,10 +32,11 @@ def _serialize(value) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python main.py <path_to_data_folder>")
+        print("Usage: python dataExtractor.py <path_to_data_folder> [regex]")
         sys.exit(1)
 
     PATH_TO_DATA_FOLDER = sys.argv[1]
+    regex = re.compile(sys.argv[2]) if len(sys.argv) >= 3 else None
 
     if not os.path.exists(PATH_TO_DATA_FOLDER):
         raise FileNotFoundError(f"Expected data to be in {PATH_TO_DATA_FOLDER}! Folder not found.")
@@ -46,6 +48,8 @@ def main():
 
         for root, dirs, files in os.walk(PATH_TO_DATA_FOLDER):
             for file in files:
+                if regex and not regex.search(file):
+                    continue
                 path = os.path.join(root, file)
                 url = reconstruct_url(file) or path
                 country_code = extract_country_code(url)
@@ -58,7 +62,6 @@ def main():
                 if not data:
                     continue
                 
-                data["country_code"] = country_code
                 writer.writerow({k: _serialize(data.get(k)) for k in COLUMNS})
                 count += 1
 
