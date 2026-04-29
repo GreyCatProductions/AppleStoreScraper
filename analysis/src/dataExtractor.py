@@ -41,6 +41,8 @@ def main():
     if not os.path.exists(PATH_TO_DATA_FOLDER):
         raise FileNotFoundError(f"Expected data to be in {PATH_TO_DATA_FOLDER}! Folder not found.")
 
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+
     count = 0
     with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS, delimiter=",", extrasaction="ignore")
