@@ -52,7 +52,6 @@ def main():
                     continue
                 path = os.path.join(root, file)
                 url = reconstruct_url(file) or path
-                country_code = extract_country_code(url)
                 
                 with open(path, "r", encoding="utf-8") as fh:
                     html = fh.read()
