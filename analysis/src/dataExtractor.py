@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -44,6 +45,9 @@ def main():
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
     count = 0
+    skipped = 0
+    start = time.time()
+
     with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS, delimiter=",", extrasaction="ignore")
         writer.writeheader()
@@ -54,19 +58,26 @@ def main():
                     continue
                 path = os.path.join(root, file)
                 url = reconstruct_url(file) or path
-                
+
                 with open(path, "r", encoding="utf-8") as fh:
                     html = fh.read()
 
                 soup = BeautifulSoup(html, "html.parser")
                 data = extractAppData(url, soup)
                 if not data:
+                    skipped += 1
                     continue
-                
+
                 writer.writerow({k: _serialize(data.get(k)) for k in COLUMNS})
                 count += 1
 
-    print(f"Parsed {count} apps -> {OUTPUT_PATH}")
+                if count % 10000 == 0:
+                    elapsed = time.time() - start
+                    rate = count / elapsed
+                    print(f"  {count:,} parsed | {skipped:,} skipped | {rate:.1f} files/s | {elapsed/3600:.1f}h elapsed", flush=True)
+
+    elapsed = time.time() - start
+    print(f"Done: {count:,} apps -> {OUTPUT_PATH} ({elapsed/3600:.1f}h total)")
     
 if __name__ == "__main__":
     main()
