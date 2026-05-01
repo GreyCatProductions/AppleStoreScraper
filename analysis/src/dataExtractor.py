@@ -55,6 +55,7 @@ def main():
         for root, dirs, files in os.walk(PATH_TO_DATA_FOLDER):
             for file in files:
                 if regex and not regex.search(file):
+                    skipped += 1
                     continue
                 path = os.path.join(root, file)
                 url = reconstruct_url(file) or path
