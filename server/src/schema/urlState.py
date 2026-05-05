@@ -13,7 +13,7 @@ class UrlTask:
     retries: int = 0
     assigned_at: float | None = None
 
-class SharedState:
+class UrlState:
     def __init__(self, csv_path: str, html_dir: str):
         self._lock = threading.Lock()
         self._available: Dict[str, UrlTask] = {}

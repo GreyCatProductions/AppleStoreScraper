@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from shared.logger import setup_logging, get_logger
 from shared.objects import WorkerConfig
-from schema.sharedState import SharedState
+from schema.sharedState import UrlState
 
 if not load_dotenv():
     raise EnvironmentError("Could not load .env!")
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 
 
 #shared singletons
-state = SharedState(csv_path=CSV_PATH, html_dir=HTML_DIR)
+state = UrlState(csv_path=CSV_PATH, html_dir=HTML_DIR)
 if os.path.exists(INITIAL_LINKS):
     with open(INITIAL_LINKS) as f:
         urls = [line.strip() for line in f if line.strip()]

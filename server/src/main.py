@@ -84,7 +84,6 @@ async def get_state(offset: int = 0, limit: int = 1000):
         "total": state.get_url_count(),
     }
 
-
 @app.get("/progress")
 async def stats():
     return {
