@@ -28,7 +28,6 @@ async def set_metadata(body: Metadata):
     mapping = {
         "SERVER_IP": body.server_ip,
         "PORT": body.port,
-        "GOOGLE_DRIVE_FOLDER_ID": body.google_drive_folder_id,
         "API_KEY": body.api_key,
         "GOOGLE_CREDENTIALS": json.dumps(body.google_credentials),
     }

@@ -11,7 +11,7 @@ from shared.logger import get_logger
 from googleCloud import start_stopped_instances
 from routers.checkpoint import _write_checkpoint
 from dependencies import API_KEY, HOST, PORT, state, GOOGLE_PROJECT_ID
-from routers import tasks, queue, config as config_router, checkpoint, workers, metadata
+from routers import tasks, queue, config as config_router, checkpoint, workers, metadata, drive
 import dependencies
 
 
@@ -100,6 +100,7 @@ app.include_router(config_router.router)
 app.include_router(checkpoint.router)
 app.include_router(workers.router)
 app.include_router(metadata.router)
+app.include_router(drive.router)
 
 if __name__ == "__main__":
     import uvicorn

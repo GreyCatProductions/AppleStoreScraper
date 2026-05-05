@@ -1,9 +1,12 @@
 import random
 import time
 import requests
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+
 from scraper import scrapeUniversal
 from shared.logger import get_logger, setup_logging
-from shared.objects import FailedTask, TaskResult
+from shared.objects import DriveId, FailedTask, TaskResult
 from googledrive import GoogleDriveClient
 from smartConfig import smartConfig
 
@@ -32,7 +35,12 @@ def report_failed(url: str) -> None:
     obj = FailedTask(url=url)
     response = requests.post(f"{config.SERVER_URL}/task/failed", json=obj.model_dump(), headers=config.HEADERS)
     response.raise_for_status()
-
+    
+def report_full_drive(driveId: str) -> None:
+    obj = DriveId(url=driveId)
+    response = requests.post(f"{config.SERVER_URL}/drive", json=obj.model_dump(), headers=config.HEADERS)
+    response.raise_for_status()
+    
 def run():
     log.info("Starting worker...")
     googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)

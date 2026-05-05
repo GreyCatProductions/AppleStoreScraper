@@ -44,3 +44,6 @@ class WorkerConfig(BaseModel):
     scrape_retry_delay_variation: int = 2
     google_drive_folder_id: str
     task_timeout: int = 300
+    
+class DriveId(BaseModel):
+    url: str

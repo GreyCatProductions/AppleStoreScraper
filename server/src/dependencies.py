@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 from shared.logger import setup_logging, get_logger
 from shared.objects import WorkerConfig
-from schema.sharedState import UrlState
+from schema.urlState import UrlState 
+from googleDrive import googleDrive
 
 if not load_dotenv():
     raise EnvironmentError("Could not load .env!")
@@ -23,14 +24,13 @@ PORT = int(port_raw)
 
 GOOGLE_PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 GOOGLE_TEMPLATE_NAME = os.getenv("GOOGLE_TEMPLATE_NAME")
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 SERVER_IP = os.getenv("SERVER_IP")
 _raw_ssh_keys = os.getenv("SSH_KEYS", "")
 SSH_KEYS = [k.strip() for k in _raw_ssh_keys.split(",") if k.strip()] or None
 API_KEY = os.getenv("API_KEY")
 
 assert API_KEY, "API_KEY missing from environment!"
-assert GOOGLE_PROJECT_ID and GOOGLE_TEMPLATE_NAME and GOOGLE_DRIVE_FOLDER_ID and SERVER_IP
+assert GOOGLE_PROJECT_ID and GOOGLE_TEMPLATE_NAME and SERVER_IP
 
 
 setup_logging()
@@ -53,6 +53,8 @@ config = WorkerConfig(
     scrape_retries=3,
     scrape_retry_delay=5,
     scrape_retry_delay_variation=2,
-    google_drive_folder_id=GOOGLE_DRIVE_FOLDER_ID,
+    google_drive_folder_id="",
     task_timeout=300
 )
+
+drive = googleDrive()
