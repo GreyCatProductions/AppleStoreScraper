@@ -38,7 +38,7 @@ def report_failed(url: str) -> None:
     
 def report_full_drive(driveId: str) -> None:
     obj = DriveId(url=driveId)
-    response = requests.post(f"{config.SERVER_URL}/drive", json=obj.model_dump(), headers=config.HEADERS)
+    response = requests.post(f"{config.SERVER_URL}/drive/full", json=obj.model_dump(), headers=config.HEADERS)
     response.raise_for_status()
     
 def run():

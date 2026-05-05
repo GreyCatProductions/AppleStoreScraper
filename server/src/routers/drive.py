@@ -5,7 +5,23 @@ from shared.objects import DriveId
 
 router = APIRouter(prefix="/drive")
 
+@router.get("")
+async def get_drive_state():
+    return {
+        "available": dependencies.drive._available,
+        "full": dependencies.drive._full,
+        "active": dependencies.config.google_drive_folder_id,
+    }
+
 @router.post("")
+async def add_shared_drive(driveIds: list[DriveId]):
+    success = 0
+    for driveId in driveIds:
+        if dependencies.drive.add(driveId):
+            success += 1
+    return {"added": success}
+
+@router.post("/full")
 async def report_full_drive(driveId: DriveId):
     marked = dependencies.drive.mark_full(driveId)
     if not marked:
@@ -20,13 +36,3 @@ async def report_full_drive(driveId: DriveId):
         "new_active_drive": dependencies.config.google_drive_folder_id,
         "remaining": dependencies.drive.count_available(),
     }
-    
-@router.post("")
-async def add_shared_drive(driveIds: list[DriveId]):
-    
-    success = 0
-    for driveId in driveIds:
-        if dependencies.drive.add(driveId):
-            success += 1
-        
-    return {"added": success}
