@@ -101,7 +101,7 @@ def run():
                                 report_full_drive(config.values.google_drive_folder_id)
                                 log.warning("Reported full drive. Refetching config")
                             except Exception as re:
-                                log.error("Failed to report full drive: {re}")
+                                log.error(f"Failed to report full drive: {re}")
                         else:
                             sleep_time = min(2 ** uploadAttempt, 60)
                             log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
