@@ -23,7 +23,9 @@ class googleDrive:
             if driveId not in self._available:
                 return False
             self._available.remove(driveId)
-            self._full.append(driveId)
+            
+            if driveId not in self._full:
+                self._full.append(driveId)
             return True
         
     def next_available(self) -> DriveId | None:
