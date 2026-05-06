@@ -96,11 +96,19 @@ def run():
                         uploaded = True
                         break
                     except Exception as e:
-                        sleep_time = min(2 ** uploadAttempt, 60)
+                        if "limit for this folder's number of children" in str(e):
+                            try: 
+                                report_full_drive(config.values.google_drive_folder_id)
+                                log.warning("Reported full drive. Refetching config")
+                            except Exception as re:
+                                log.error("Failed to report full drive: {re}")
+                        else:
+                            sleep_time = min(2 ** uploadAttempt, 60)
+                            log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
+                            time.sleep(sleep_time)
+                        
                         config.refresh()
                         googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)
-                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
-                        time.sleep(sleep_time)
 
                 while not uploaded:
                     log.warning(f"All upload attempts failed for {url}, waiting 10 minutes and retrying with refreshed config...")
