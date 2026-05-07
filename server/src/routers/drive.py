@@ -29,7 +29,7 @@ async def report_full_drive(driveId: DriveId):
 
     next_drive = dependencies.drive.next_available()
     if next_drive:
-        dependencies.config = dependencies.config.model_copy(update={"google_drive_folder_id": next_drive})
+        dependencies.config = dependencies.config.model_copy(update={"google_drive_folder_id": next_drive.url})
 
     return {
         "marked_full": driveId,
