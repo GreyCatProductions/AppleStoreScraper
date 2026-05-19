@@ -40,6 +40,22 @@ def report_full_drive(driveId: str) -> None:
     obj = DriveId(url=driveId)
     response = requests.post(f"{config.SERVER_URL}/drive/full", json=obj.model_dump(), headers=config.HEADERS)
     response.raise_for_status()
+
+def try_upload_once(processed_url: str, html: str, drive_client: GoogleDriveClient) -> tuple[bool, GoogleDriveClient]:
+    """Try one upload. On drive-full, report and return a fresh client. Raises on other errors."""
+    try:
+        drive_client.upload_with_conversion(processed_url, html)
+        return True, drive_client
+    except Exception as e:
+        if "limit for this folder's number of children" in str(e):
+            try:
+                report_full_drive(config.values.google_drive_folder_id)
+                log.warning("Reported full drive. Refetching config")
+            except Exception as re:
+                log.error(f"Failed to report full drive: {re}")
+            config.refresh()
+            return False, GoogleDriveClient(config.values.google_drive_folder_id)
+        raise
     
 def run():
     log.info("Starting worker...")
@@ -89,27 +105,21 @@ def run():
                 count = len(result.foundUrls) if result.foundUrls else 0
                 log.info(f"Successfully extracted data from {url}. Found {count} URLs. Trying to save html to folder id {googleDriveClient.htmlFolderID}")
 
+                #fast retries exp backoff
                 ATTEMPTS = 10
                 for uploadAttempt in range(1, ATTEMPTS + 1):
                     try:
-                        googleDriveClient.upload_with_conversion(result.processed_url, html)
-                        uploaded = True
-                        break
+                        uploaded, googleDriveClient = try_upload_once(result.processed_url, html, googleDriveClient)
+                        if uploaded:
+                            break
                     except Exception as e:
-                        if "limit for this folder's number of children" in str(e):
-                            try: 
-                                report_full_drive(config.values.google_drive_folder_id)
-                                log.warning("Reported full drive. Refetching config")
-                            except Exception as re:
-                                log.error(f"Failed to report full drive: {re}")
-                        else:
-                            sleep_time = min(2 ** uploadAttempt, 60)
-                            log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
-                            time.sleep(sleep_time)
-                        
+                        sleep_time = min(2 ** uploadAttempt, 60)
+                        log.warning(f"Failed to upload html for {url}, [Attempt {uploadAttempt}/{ATTEMPTS}] retrying in {sleep_time}s: {e}")
+                        time.sleep(sleep_time)
                         config.refresh()
                         googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)
 
+                #slow refresh until success
                 while not uploaded:
                     log.warning(f"All upload attempts failed for {url}, waiting 10 minutes and retrying with refreshed config...")
                     TIME_TO_REFRESH = 600
@@ -120,14 +130,15 @@ def run():
                         time.sleep(chunk)
                         elapsed += chunk
                         send_heartbeat(url)
-                        
+
                     config.refresh()
                     googleDriveClient = GoogleDriveClient(config.values.google_drive_folder_id)
                     try:
-                        googleDriveClient.upload_with_conversion(result.processed_url, html)
-                        uploaded = True
+                        uploaded, googleDriveClient = try_upload_once(result.processed_url, html, googleDriveClient)
                     except Exception as e:
                         log.warning(f"Retry upload still failed: {e}")
+
+                break  # scrape + upload succeeded, don't re-scrape
                         
             except Exception as e:
                 log.warning(f"Attempt {attempt}/{config.values.scrape_retries} failed for {url}: {e}")

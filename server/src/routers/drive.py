@@ -23,11 +23,10 @@ async def add_shared_drive(driveIds: list[DriveId]):
 
 @router.post("/full")
 async def report_full_drive(driveId: DriveId):
-    marked = dependencies.drive.mark_full(driveId)
+    marked, next_drive = dependencies.drive.mark_full(driveId)
     if not marked:
-        raise HTTPException(status_code=404, detail=f"Drive {driveId} not in available list")
+        raise HTTPException(status_code=404, detail=f"Drive {driveId} not in available list. Might already have been changed")
 
-    next_drive = dependencies.drive.next_available()
     if next_drive:
         dependencies.config = dependencies.config.model_copy(update={"google_drive_folder_id": next_drive.url})
 

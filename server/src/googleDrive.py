@@ -18,16 +18,16 @@ class googleDrive:
             self._available.append(driveId)
             return True
 
-    def mark_full(self, driveId: DriveId) -> bool:
+    def mark_full(self, driveId: DriveId) -> tuple[bool, DriveId | None]:
+        """Returns (was_marked, next_available_drive) atomically."""
         with self._lock:
             if driveId not in self._available:
-                return False
+                return False, self._available[0] if self._available else None
             self._available.remove(driveId)
-            
             if driveId not in self._full:
                 self._full.append(driveId)
-            return True
-        
+            return True, self._available[0] if self._available else None
+
     def next_available(self) -> DriveId | None:
         with self._lock:
             return self._available[0] if self._available else None
