@@ -1,12 +1,22 @@
 from datetime import datetime
 import json
 import os
+import shutil
 from fastapi import APIRouter, HTTPException
 from shared.logger import get_logger
 from dependencies import CHECKPOINTS_DIR, state
 
 router = APIRouter(prefix="/checkpoint")
 logger = get_logger(__name__)
+
+def _free_space_for(needed: int) -> None:
+    files = sorted(f for f in os.listdir(CHECKPOINTS_DIR) if f.endswith(".json"))
+    while shutil.disk_usage(CHECKPOINTS_DIR).free < needed:
+        if not files:
+            raise OSError(f"Disk full and no checkpoints left to delete (need {needed} bytes)")
+        oldest = files.pop(0)
+        logger.warning(f"Disk full, deleting oldest checkpoint to make space: {oldest}")
+        os.remove(os.path.join(CHECKPOINTS_DIR, oldest))
 
 def _write_checkpoint() -> str:
     checkpoint = {
@@ -15,10 +25,13 @@ def _write_checkpoint() -> str:
         "processed": state.get_processed_urls(),
         "terminated": state.get_terminated_urls(),
     }
+    data = json.dumps(checkpoint)
+    _free_space_for(len(data.encode("utf-8")))
+
     filename = datetime.utcnow().strftime("checkpoint_%Y%m%d_%H%M%S.json")
     path = os.path.join(CHECKPOINTS_DIR, filename)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(checkpoint, f)
+        f.write(data)
     return path
 
 @router.get("")
@@ -29,7 +42,11 @@ async def list_checkpoints():
 
 @router.post("")
 async def save_checkpoint():
-    path = _write_checkpoint()
+    try:
+        path = _write_checkpoint()
+    except OSError as e:
+        logger.error(f"Failed to write checkpoint: {e}")
+        raise HTTPException(status_code=507, detail=str(e))
     total = state.get_url_count()
     logger.info(f"Manual checkpoint saved to {path} ({total} URLs)")
     return {"saved": total, "path": path}

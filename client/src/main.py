@@ -138,7 +138,7 @@ def run():
                     except Exception as e:
                         log.warning(f"Retry upload still failed: {e}")
 
-                break  # scrape + upload succeeded, don't re-scrape
+                break
                         
             except Exception as e:
                 log.warning(f"Attempt {attempt}/{config.values.scrape_retries} failed for {url}: {e}")
