@@ -154,13 +154,23 @@ def run():
             continue
 
         time.sleep(config.values.scrape_retry_delay + random.uniform(-config.values.scrape_retry_delay_variation, config.values.scrape_retry_delay_variation))
-        try:
-            complete_task(result)
-            log.info(f"Done: {url}")
-        except requests.ConnectionError:
-            log.error(f"Cannot reach server to submit result for {url}")
-        except requests.HTTPError as e:
-            log.error(f"Server rejected result for {url}: {e}")
+        
+        COMPLETE_ATTEMPTS = 10
+        for attempt in range(1, COMPLETE_ATTEMPTS + 1):
+            try:
+                complete_task(result)
+                log.info(f"Done: {url}")
+                break
+            except (requests.ConnectionError, requests.Timeout):
+                if attempt < COMPLETE_ATTEMPTS:
+                    sleep_time = min(2 ** attempt, 60)
+                    log.warning(f"Cannot reach server to submit result for {url}, retrying in {sleep_time}s [{attempt}/{COMPLETE_ATTEMPTS}]")
+                    time.sleep(sleep_time)
+                else:
+                    log.error(f"Failed to submit result for {url} after {COMPLETE_ATTEMPTS} attempts, task may be reassigned and re-uploaded")
+            except requests.HTTPError as e:
+                log.error(f"Server rejected result for {url}: {e}")
+                break
 
 
 if __name__ == "__main__":
