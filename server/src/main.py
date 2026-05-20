@@ -30,14 +30,15 @@ async def _checkpoint_loop():
 async def _timeout_loop():
     while True:
         await asyncio.sleep(10)
-        if dependencies.config.task_timeout is None:
-            continue
-        candidates = state.get_timed_out(dependencies.config.task_timeout)
-        if not candidates:
-            continue
-        for url in candidates:
-            state.requeue_url(url)
-            logger.info(f"Requeued {url}. Timed out")
+        try:
+            if dependencies.config.task_timeout is None:
+                continue
+            candidates = state.get_timed_out(dependencies.config.task_timeout)
+            for url in candidates:
+                state.requeue_url(url)
+                logger.info(f"Requeued {url}. Timed out")
+        except Exception as e:
+            logger.error(f"Error in timeout loop: {e}")
             
 async def _restart_loop():
     while True:

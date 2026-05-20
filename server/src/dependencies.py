@@ -39,10 +39,28 @@ logger = get_logger(__name__)
 
 #shared singletons
 state = UrlState(csv_path=CSV_PATH, html_dir=HTML_DIR)
-if os.path.exists(INITIAL_LINKS):
+
+checkpoints = sorted(
+    (f for f in os.listdir(CHECKPOINTS_DIR) if f.endswith(".json")),
+    reverse=True,
+)
+if checkpoints:
+    import json
+    checkpoint_path = os.path.join(CHECKPOINTS_DIR, checkpoints[0])
+    with open(checkpoint_path) as f:
+        data = json.load(f)
+    state.load_from_checkpoint(
+        available=data.get("available", []),
+        occupied=data.get("occupied", []),
+        processed=data.get("processed", []),
+        terminated=data.get("terminated", []),
+    )
+    logger.info(f"Restored state from checkpoint: {checkpoints[0]}")
+elif os.path.exists(INITIAL_LINKS):
     with open(INITIAL_LINKS) as f:
         urls = [line.strip() for line in f if line.strip()]
         state.add_urls(urls)
+    logger.info(f"Loaded {len(urls)} initial URLs from {INITIAL_LINKS}")
 else:
     raise FileNotFoundError(
         f"Could not find file for loading initial urls! Expected at {INITIAL_LINKS}. Exiting!"
