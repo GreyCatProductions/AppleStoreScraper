@@ -115,12 +115,6 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         languages = []
 
     try:
-        blocks = _findDt(soup, "kompatibilität", "compatibility").find_next("details").select("ul li .styled-text")  # type: ignore
-        versions = "|".join(b.get_text("\n", strip=True) for b in blocks) or None
-    except AttributeError:
-        versions = None
-
-    try:
         items = _findDt(soup, "in\u2011app purchases", "in-app-käufe").find_next("details").select("ul li")  # type: ignore
         in_app_purchases = "|".join(b.get_text("\n", strip=True) for b in items) or None
     except AttributeError:
@@ -185,20 +179,39 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
 
     found_urls = extractAppRefs(soup=soup)
     
-    lis = soup.select('dialog ul li')
-    VERSION_RE = re.compile(r"\b(?:Version\s*)?(\d+\.\d+(?:\.\d+)?)\b")
     version_history = []
-    for li in lis:
-        heading = li.find(["h3", "h4", "h5"])
-        time = li.find("time")
-        notes = li.find("p")
-        m = VERSION_RE.search((heading.get_text(" ", strip=True) if heading else ""))
-        if m and time:
-            version_history.append({
-                "version": m.group(1),
-                "date": time.get("datetime") or time.get_text(strip=True),
-                "notes": notes.get_text(" ", strip=True) if notes else None
-            })
+    try:
+        script = next(
+            el for el in soup.find_all("script")
+            if el.string and "versionHistory" in el.string
+        )
+        text = str(script.string)
+        m = re.search(r'\{"data":\[', text)
+        if m:
+            blob = json.loads(text[m.start():])
+            def _find_version_page(obj):
+                if isinstance(obj, dict):
+                    if obj.get("page") == "versionHistory":
+                        return obj
+                    for v in obj.values():
+                        r = _find_version_page(v)
+                        if r:
+                            return r
+                elif isinstance(obj, list):
+                    for i in obj:
+                        r = _find_version_page(i)
+                        if r:
+                            return r
+            vp = _find_version_page(blob)
+            if vp:
+                for item in vp.get("pageData", {}).get("shelves", [{}])[0].get("items", []):
+                    version = item.get("primarySubtitle")
+                    date = item.get("secondarySubtitle")
+                    notes = item.get("text")
+                    if version:
+                        version_history.append({"version": version, "date": date, "notes": notes})
+    except StopIteration:
+        pass
     
     try:
         privacy_policy_link = next(
@@ -226,7 +239,7 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         "review_three": ratings[2],
         "review_four": ratings[3],
         "review_five": ratings[4],
-        "versions": versions,
+        #"versions": versions,
         "size": size,
         "languages": languages,
         "age": age_restriction,
