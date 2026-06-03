@@ -54,6 +54,7 @@ def main():
 
     count = 0
     skipped = 0
+    failed = 0
     start = time.time()
 
     with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
@@ -74,7 +75,7 @@ def main():
                 soup = BeautifulSoup(html, "html.parser")
                 data = extractAppData(url, soup)
                 if not data:
-                    skipped += 1
+                    failed += 1
                     continue
 
                 writer.writerow({k: _serialize(data.get(k)) for k in COLUMNS})
@@ -83,7 +84,7 @@ def main():
                 if count % 10000 == 0:
                     elapsed = time.time() - start
                     rate = count / elapsed
-                    print(f"  {count:,} parsed | {skipped:,} skipped | {rate:.1f} files/s | {elapsed/3600:.1f}h elapsed", flush=True)
+                    print(f"  {count:,} parsed | {skipped:,} skipped | {failed:,} failed | {rate:.1f} files/s | {elapsed/3600:.1f}h elapsed", flush=True)
 
                 if limit and count >= limit:
                     break
