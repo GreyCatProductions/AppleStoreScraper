@@ -33,11 +33,17 @@ def _serialize(value) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python dataExtractor.py <path_to_data_folder> [regex]")
+        print("Usage: python dataExtractor.py <path_to_data_folder> [regex] [--limit N]")
         sys.exit(1)
 
     PATH_TO_DATA_FOLDER = sys.argv[1]
-    regex = re.compile(sys.argv[2]) if len(sys.argv) >= 3 else None
+    args = sys.argv[2:]
+    limit = None
+    if "--limit" in args:
+        idx = args.index("--limit")
+        limit = int(args[idx + 1])
+        args = args[:idx] + args[idx + 2:]
+    regex = re.compile(args[0]) if args else None
 
     if not os.path.exists(PATH_TO_DATA_FOLDER):
         raise FileNotFoundError(f"Expected data to be in {PATH_TO_DATA_FOLDER}! Folder not found.")
@@ -76,6 +82,11 @@ def main():
                     elapsed = time.time() - start
                     rate = count / elapsed
                     print(f"  {count:,} parsed | {skipped:,} skipped | {rate:.1f} files/s | {elapsed/3600:.1f}h elapsed", flush=True)
+
+                if limit and count >= limit:
+                    break
+            if limit and count >= limit:
+                break
 
     elapsed = time.time() - start
     print(f"Done: {count:,} apps -> {OUTPUT_PATH} ({elapsed/3600:.1f}h total)")
