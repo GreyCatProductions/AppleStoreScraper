@@ -135,7 +135,7 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         age_restriction = None
 
     try:
-        age_details = _findDt(soup, "age rating", "altersfreigabe").find_next("details")  # type: ignore
+        age_details = _findDt(soup, "age classification", "altersfreigabe").find_next("details")  # type: ignore
         age_restriction_reasons = []
         for li in age_details.select("ul li"):
             if li.find(class_="text-encapsulation") or li.find(class_="button-wrapper") or li.find(class_="spacer"):
