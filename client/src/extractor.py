@@ -147,37 +147,86 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     except AttributeError:
         age_restriction_reasons = None
         
+    PRIVACY_ID_MAP = {
+        "DATA_LINKED_TO_YOU": "linked",
+        "DATA_NOT_LINKED_TO_YOU": "unlinked",
+        "DATA_USED_TO_TRACK_YOU": "tracked",
+        "DATA_NOT_COLLECTED": "not_collected",
+    }
     PRIVACY_LABELS = {
         "linked": ("Data Linked to You", "Mit dir verknüpfte Daten"),
         "unlinked": ("Data Not Linked to You", "Nicht mit dir verknüpfte Daten"),
         "tracked": (
-        "Data Used to Track You",
-        "Daten, die zum Tracking deiner Person verwendet werden",
+            "Data Used to Track You",
+            "Daten, die zum Tracking deiner Person verwendet werden",
         ),
         "not_collected": ("Data Not Collected", "Keine Daten erfasst"),
     }
 
-    privacy_section = soup.find(id="privacyHeader")
+    linked: list[str] = []
+    unlinked: list[str] = []
+    tracked: list[str] = []
+    not_collected: bool = False
 
-    def _privacy_items(key: str) -> list[str]:
-        try:
-            container = privacy_section.find(
-                "div", attrs={"aria-label": lambda v: v and v.strip() in PRIVACY_LABELS[key]}
-            )
-            if not container:
-                print(f"[extractor] WARNING: privacy label '{key}' not found in {url}")
+    privacy_from_json = False
+    try:
+        script = next(el for el in soup.find_all("script") if el.string and "privacyTypes" in el.string)
+        m = re.search(r'\{"data":\[', str(script.string))
+        if m:
+            blob = json.loads(str(script.string)[m.start():])
+            def _find_privacy_shelf(obj, depth=0):
+                if depth > 8: return None
+                if isinstance(obj, dict):
+                    if obj.get("contentType") == "privacyType" and "items" in obj:
+                        return obj
+                    for v in obj.values():
+                        r = _find_privacy_shelf(v, depth + 1)
+                        if r: return r
+                elif isinstance(obj, list):
+                    for i in obj:
+                        r = _find_privacy_shelf(i, depth + 1)
+                        if r: return r
+            shelf = _find_privacy_shelf(blob)
+            if shelf:
+                privacy_from_json = True
+                for pt in shelf.get("items", []):
+                    key = PRIVACY_ID_MAP.get(pt.get("identifier", ""))
+                    if not key:
+                        continue
+                    titles = [c["title"] for c in pt.get("categories", []) if "title" in c]
+                    if key == "not_collected":
+                        not_collected = True
+                    elif key == "linked":
+                        linked = titles
+                    elif key == "unlinked":
+                        unlinked = titles
+                    elif key == "tracked":
+                        tracked = titles
+    except StopIteration:
+        pass
+
+    if not privacy_from_json:
+        privacy_section = soup.find(id="privacyHeader")
+        def _privacy_items(key: str) -> list[str]:
+            try:
+                container = privacy_section.find(
+                    "div", attrs={"aria-label": lambda v: v and v.strip() in PRIVACY_LABELS[key]}
+                )
+                if not container:
+                    return []
+                items = container.select("ul.privacy-data-types li") or container.select("ul li")
+                return list(dict.fromkeys(li.get_text(" ", strip=True) for li in items if li.get_text(strip=True)))
+            except AttributeError:
                 return []
-            items = container.select("ul.privacy-data-types li") or container.select("ul li")
-            return list(dict.fromkeys(li.get_text(" ", strip=True) for li in items if li.get_text(strip=True)))
+        linked = _privacy_items("linked")
+        unlinked = _privacy_items("unlinked")
+        tracked = _privacy_items("tracked")
+        try:
+            not_collected = bool(
+                privacy_section.find("h3", string=lambda s: s and s.strip() in PRIVACY_LABELS["not_collected"])
+            )
         except AttributeError:
-            return []
-
-    linked = _privacy_items("linked")
-    unlinked = _privacy_items("unlinked")
-    tracked = _privacy_items("tracked")
-    not_collected = bool(
-        privacy_section.find("h3", string=lambda s: s and s.strip() in PRIVACY_LABELS["not_collected"])
-    )
+            not_collected = False
 
 
     found_urls = extractAppRefs(soup=soup)
