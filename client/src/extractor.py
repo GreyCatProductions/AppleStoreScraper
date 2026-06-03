@@ -84,14 +84,19 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     review_count = _get(data, "aggregateRating", "reviewCount")
     description = _get(data, "description")
 
-    ratings: list[int | None] = [None] * 5
-    for el in soup.select("[class*=numbers__star-graph__row]"):
+    bars = soup.select("[data-testid^='star-row-']")
+    ratings: List[int] = [0] * 5
+    try:
+        total = int(review_count) if review_count else 0
+    except (ValueError, TypeError):
+        total = 0
+    for bar in bars:
         try:
-            m = re.match(r"(\d) star, (\d+)%", str(el.get("aria-label", "")))
-            if m:
-                stars, percent = int(m.group(1)), int(m.group(2))
-                if 1 <= stars <= 5:
-                    ratings[stars - 1] = percent
+            stars = int(str(bar.get("data-testid", "")).split("-")[-1])
+            m = re.search(r"(\d+)%", str(bar.get("style", "")))
+            if m and 1 <= stars <= 5:
+                pct = int(m.group(1))
+                ratings[stars - 1] = round(pct / 100 * total)
         except (ValueError, IndexError):
             pass
 

@@ -8,7 +8,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from bs4 import BeautifulSoup
-from client.src.parser import extractAppData
+from client.src.extractor import extractAppData
 from utils import extract_country_code, reconstruct_url
 
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "../data/parsed.csv")
