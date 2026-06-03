@@ -45,6 +45,8 @@ def main():
         args = args[:idx] + args[idx + 2:]
     regex = re.compile(args[0]) if args else None
 
+    print(f"folder={PATH_TO_DATA_FOLDER!r}  limit={limit!r}  regex={regex!r}")
+
     if not os.path.exists(PATH_TO_DATA_FOLDER):
         raise FileNotFoundError(f"Expected data to be in {PATH_TO_DATA_FOLDER}! Folder not found.")
 
