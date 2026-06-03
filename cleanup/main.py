@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 from googleapiclient.discovery import build
@@ -11,7 +12,7 @@ _CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "googleCredent
 _SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
-def deduplicate(drive_id: str):
+def deduplicate(drive_id: str, yes: bool = False):
     creds = service_account.Credentials.from_service_account_file(_CREDENTIALS_PATH, scopes=_SCOPES)
     service = build("drive", "v3", credentials=creds)
 
@@ -57,16 +58,14 @@ def deduplicate(drive_id: str):
         print(f"  {file['name']} ({file['id']})")
 
     print(f"\nFound {total_files} files with {len(to_delete)} duplicate(s) to delete.")
-    answer = None
-    while True:
-        answer = input("\nDelete all of the above? [y/N] ").strip().lower()
-        if answer == "n":
-            print("Aborted.")
-            return
-
-        if answer == "y":
-            print("Deleting")
-            break
+    if not yes:
+        while True:
+            answer = input("\nDelete all of the above? [y/N] ").strip().lower()
+            if answer == "n":
+                print("Aborted.")
+                return
+            if answer == "y":
+                break
 
     for file in to_delete:
         service.files().delete(fileId=file["id"], supportsAllDrives=True).execute()
@@ -76,14 +75,13 @@ def deduplicate(drive_id: str):
 
 
 def main():
-    drive_id = sys.argv[1] if len(sys.argv) > 1 else None
-    if not drive_id:
-        print("Usage: python main.py <drive_id>")
-        print("       or set SHARED_DRIVE_ID env var")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("drive_id")
+    parser.add_argument("-y", action="store_true", help="Skip confirmation prompt")
+    args = parser.parse_args()
 
-    print(f"Eliminating duplicates in shared drive: {drive_id}\n")
-    deduplicate(drive_id)
+    print(f"Eliminating duplicates in shared drive: {args.drive_id}\n")
+    deduplicate(args.drive_id, yes=args.y)
 
 if __name__ == "__main__":
     main()
