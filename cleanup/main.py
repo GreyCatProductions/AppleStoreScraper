@@ -17,6 +17,7 @@ def deduplicate(drive_id: str):
 
     seen: set[str] = set()
     to_delete: list[dict] = []
+    total_files = 0
     page_token = None
 
     while True:
@@ -35,6 +36,7 @@ def deduplicate(drive_id: str):
         )
 
         files: List[Dict] = response.get("files", [])
+        total_files += len(files)
         print(f"Fetched {len(files)} files of which {len(set(f['name'] for f in files))} are unique by name")
 
         for file in files:
@@ -50,15 +52,21 @@ def deduplicate(drive_id: str):
     if not to_delete:
         print("No duplicates found.")
         return
-
-    print(f"\nFound {len(to_delete)} duplicate(s) to delete:")
+    
     for file in to_delete:
         print(f"  {file['name']} ({file['id']})")
 
-    answer = input("\nDelete all of the above? [y/N] ").strip().lower()
-    if answer != "y":
-        print("Aborted.")
-        return
+    print(f"\nFound {total_files} files with {len(to_delete)} duplicate(s) to delete.")
+    answer = None
+    while True:
+        answer = input("\nDelete all of the above? [y/N] ").strip().lower()
+        if answer == "n":
+            print("Aborted.")
+            return
+
+        if answer == "y":
+            print("Deleting")
+            break
 
     for file in to_delete:
         service.files().delete(fileId=file["id"], supportsAllDrives=True).execute()
