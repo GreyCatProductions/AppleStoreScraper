@@ -1,22 +1,3 @@
-#!/usr/bin/env python3
-"""
-Compare the Python and Rust parser outputs for an Apple Store HTML file.
-
-Runs both parsers on the same file, normalizes minor type differences
-(Python returns int/float for JSON-LD numbers; Rust always returns str),
-then prints a field-by-field diff.
-
-Usage:
-    python3 compare_parsers.py <html_file> [url]
-
-    html_file   Path to a saved Apple Store app page.
-    url         URL to embed in the output (default: https://apps.apple.com/test).
-
-Exit code 0 if all fields match, 1 if any differ or an error occurs.
-
-The Rust release binary is built automatically the first time if not found.
-"""
-
 import json
 import subprocess
 import sys
@@ -27,8 +8,8 @@ from bs4 import BeautifulSoup
 
 sys.path.insert(0, str(Path(__file__).parent / "client" / "src"))
 sys.path.insert(0, str(Path(__file__).parent / "analysis" / "src"))
-from parser import extractAppData
-from utils import reconstruct_url
+from client.src.extractor import extractAppData
+from analysis.src.utils import reconstruct_url
 
 RUST_DIR = Path(__file__).parent / "highperformanceanalysis"
 RUST_BIN = RUST_DIR / "target" / "release" / "highperformanceanalysis"
