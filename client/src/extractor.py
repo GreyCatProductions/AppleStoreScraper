@@ -99,17 +99,20 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
                 ratings[stars - 1] = round(pct / 100 * total)
         except (ValueError, IndexError):
             pass
-
+    
     try:
-        languages = _findDt(soup, "languages", "sprachen").find_next("details").select_one("ul li .styled-text").get_text(strip=True)  # type: ignore
-    except AttributeError:
-        languages = None
-
-    try:
-        size_text = _findDt(soup, "size", "größe").find_next("ul").select_one("li .styled-text").get_text(strip=True)  # type: ignore
+        size_text = _findDt(soup, "size", "größe").find_next("dd").get_text(strip=True)  # type: ignore
         size = sizeToBytes(size_text)
     except AttributeError:
         size = None
+
+    try:
+        dd = _findDt(soup, "languages", "sprachen").find_next("dd")  # type: ignore
+        li = dd.find("li")
+        raw = (li or dd).get_text(strip=True)
+        languages: List[str] = [l.strip() for l in raw.split(",") if l.strip()]
+    except AttributeError:
+        languages = []
 
     try:
         blocks = _findDt(soup, "kompatibilität", "compatibility").find_next("details").select("ul li .styled-text")  # type: ignore
@@ -138,37 +141,47 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         age_restriction = None
 
     try:
-        age_restriction_reasons = _findDt(
-            soup, "age rating", "altersfreigabe"
-        ).find_next("details")
-        age_restriction_reasons = [
-            li.get_text(" ", strip=True)
-            for li in age_restriction_reasons.select("ul li")
-        ]
+        age_details = _findDt(soup, "age rating", "altersfreigabe").find_next("details")  # type: ignore
+        age_restriction_reasons = []
+        for li in age_details.select("ul li"):
+            if li.find(class_="text-encapsulation") or li.find(class_="button-wrapper") or li.find(class_="spacer"):
+                continue
+            for br in li.find_all("br"):
+                br.replace_with("\n")
+            lines = [l.strip() for l in li.get_text().splitlines() if l.strip()]
+            age_restriction_reasons.extend(lines)
     except AttributeError:
         age_restriction_reasons = None
-
+        
     PRIVACY_LABELS = {
         "linked": ("Data Linked to You", "Mit dir verknüpfte Daten"),
         "unlinked": ("Data Not Linked to You", "Nicht mit dir verknüpfte Daten"),
         "tracked": (
-            "Data Used to Track You",
-            "Daten, die zum Tracking deiner Person verwendet werden",
+        "Data Used to Track You",
+        "Daten, die zum Tracking deiner Person verwendet werden",
         ),
         "not_collected": ("Data Not Collected", "Keine Daten erfasst"),
     }
 
+    privacy_section = soup.find(id="privacyHeader")
+
     def _privacy_items(key: str) -> list[str]:
         try:
-            ul = soup.find_all("h2", string=lambda s: s and s.strip() in PRIVACY_LABELS[key])[1].find_next("ul")  # type: ignore
-            return [li.get_text(" ", strip=True) for li in ul.select("li")]
-        except (AttributeError, IndexError):
+            container = privacy_section.find(
+                "div", attrs={"aria-label": lambda v: v and v.strip() in PRIVACY_LABELS[key]}
+            )
+            items = container.select("ul.privacy-data-types li") or container.select("ul li")
+            return list(dict.fromkeys(li.get_text(" ", strip=True) for li in items if li.get_text(strip=True)))
+        except AttributeError:
             return []
 
     linked = _privacy_items("linked")
     unlinked = _privacy_items("unlinked")
     tracked = _privacy_items("tracked")
-    not_collected = bool(soup.find("h2", string=lambda s: s and s.strip() in PRIVACY_LABELS["not_collected"]))  # type: ignore
+    not_collected = bool(
+        privacy_section.find("h3", string=lambda s: s and s.strip() in PRIVACY_LABELS["not_collected"])
+    )
+
 
     found_urls = extractAppRefs(soup=soup)
     
@@ -188,9 +201,14 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
             })
     
     try:
-        privacy_policy_link = \
-        soup.find("a", string=lambda s: s and ("datenschutz" in s.lower() or "privacy policy" in s.lower()))["href"] # type: ignore
-    except (AttributeError, TypeError):
+        privacy_policy_link = next(
+            str(a["href"])
+            for a in soup.find_all("a", href=True)
+            if ("privacy" in a.get_text(strip=True).lower() or "datenschutz" in a.get_text(strip=True).lower())
+            and "apple.com" not in str(a["href"])
+            and not str(a["href"]).startswith("#")
+        )
+    except StopIteration:
         privacy_policy_link = None
 
     return {
