@@ -121,21 +121,21 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
         in_app_purchases = None
 
     try:
-        age_restriction = (
-            _findDt(soup, "age classification", "altersfreigabe")
-            .find_next(
+        age_dd = _findDt(soup, "age rating", "age classification", "altersfreigabe").find_next("dd")  # type: ignore
+        summary = age_dd.find("summary")
+        if summary:
+            age_restriction = summary.get_text(strip=True)
+        else:
+            age_restriction = age_dd.find_next(
                 lambda n: n.name in ("div", "span")
                 and n.get_text(strip=True)
-                and "Altersfreigabe" not in n.get_text()
-                and "Age Classification" not in n.get_text()
-            )
-            .get_text(strip=True)
-        )
+                and not any(x in n.get_text() for x in ("Altersfreigabe", "Age Rating", "Age Classification"))
+            ).get_text(strip=True)
     except AttributeError:
         age_restriction = None
 
     try:
-        age_details = _findDt(soup, "age classification", "altersfreigabe").find_next("details")  # type: ignore
+        age_details = _findDt(soup, "age rating", "age classification", "altersfreigabe").find_next("details")  # type: ignore
         age_restriction_reasons = []
         for li in age_details.select("ul li"):
             if li.find(class_="text-encapsulation") or li.find(class_="button-wrapper") or li.find(class_="spacer"):
