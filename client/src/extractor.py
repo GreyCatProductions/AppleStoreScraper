@@ -164,6 +164,9 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
             container = privacy_section.find(
                 "div", attrs={"aria-label": lambda v: v and v.strip() in PRIVACY_LABELS[key]}
             )
+            if not container:
+                print(f"[extractor] WARNING: privacy label '{key}' not found in {url}")
+                return []
             items = container.select("ul.privacy-data-types li") or container.select("ul li")
             return list(dict.fromkeys(li.get_text(" ", strip=True) for li in items if li.get_text(strip=True)))
         except AttributeError:
