@@ -122,12 +122,12 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
 
     try:
         age_restriction = (
-            _findDt(soup, "age rating", "altersfreigabe")
+            _findDt(soup, "age classification", "altersfreigabe")
             .find_next(
                 lambda n: n.name in ("div", "span")
                 and n.get_text(strip=True)
                 and "Altersfreigabe" not in n.get_text()
-                and "Age Rating" not in n.get_text()
+                and "Age Classification" not in n.get_text()
             )
             .get_text(strip=True)
         )
