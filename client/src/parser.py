@@ -74,12 +74,16 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     script = soup.find("script", id="software-application", type="application/ld+json")
     if not script or not script.string:
         return None
-    data = json.loads(script.string)
+    try:
+        data = json.loads(script.string)
+    except json.JSONDecodeError:
+        return None
 
     app_name = _get(data, "name")
     developer = _get(data, "author", "name")
     category = _get(data, "applicationCategory")
-    price = f"{_get(data, 'offers', 'price')} {_get(data, 'offers', 'priceCurrency')}"
+    _price, _currency = _get(data, "offers", "price"), _get(data, "offers", "priceCurrency")
+    price = f"{_price} {_currency}" if _price is not None and _currency is not None else None
     review_average = _get(data, "aggregateRating", "ratingValue")
     review_count = _get(data, "aggregateRating", "reviewCount")
     description = _get(data, "description")
@@ -103,7 +107,7 @@ def extractAppData(url: str, soup: BeautifulSoup) -> dict | None:
     try:
         size_text = _findDt(soup, "size", "größe").find_next("ul").select_one("li .styled-text").get_text(strip=True)  # type: ignore
         size = sizeToBytes(size_text)
-    except AttributeError:
+    except (AttributeError, ValueError):
         size = None
 
     try:
