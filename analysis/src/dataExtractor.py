@@ -87,7 +87,7 @@ def main():
                 yield os.path.join(root, file)
 
     with open(OUTPUT_PATH, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=COLUMNS, delimiter=",", extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=COLUMNS, delimiter=",", extrasaction="ignore", quoting=csv.QUOTE_ALL)
         writer.writeheader()
 
         with ProcessPoolExecutor(max_workers=args.workers) as executor:
